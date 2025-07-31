@@ -1,4 +1,4 @@
-# n8n-nodes-caldav
+# n8n-caldav-node
 
 Простейший n8n community node для работы с календарями по протоколу CalDAV.
 
@@ -11,12 +11,12 @@
 ## Установка
 
 ```bash
-npm install n8n-nodes-caldav
+npm install n8n-caldav-node
 ```
 
 Или через UI n8n:
 1. Перейдите в Settings > Community Nodes
-2. Введите `n8n-nodes-caldav`
+2. Введите `n8n-caldav-node`
 3. Нажмите Install
 
 ## Настройка
