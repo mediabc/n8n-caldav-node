@@ -1,0 +1,13 @@
+<svg width="60" height="60" viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
+  <rect width="60" height="60" rx="8" fill="#4285F4"/>
+  <rect x="8" y="12" width="44" height="36" rx="2" fill="white"/>
+  <rect x="12" y="16" width="8" height="6" fill="#4285F4"/>
+  <rect x="24" y="16" width="8" height="6" fill="#4285F4"/>
+  <rect x="36" y="16" width="8" height="6" fill="#4285F4"/>
+  <rect x="12" y="26" width="8" height="6" fill="#34A853"/>
+  <rect x="24" y="26" width="8" height="6" fill="#FBBC04"/>
+  <rect x="36" y="26" width="8" height="6" fill="#EA4335"/>
+  <rect x="12" y="36" width="8" height="6" fill="#9AA0A6"/>
+  <rect x="24" y="36" width="8" height="6" fill="#9AA0A6"/>
+  <text x="30" y="54" text-anchor="middle" fill="white" font-family="Arial" font-size="8">DAV</text>
+</svg> 
