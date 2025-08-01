@@ -51,6 +51,16 @@ interface CalendarEvent {
 }
 
 /**
+ * Структура парсинга iCal даты
+ */
+interface ParsedICalDate {
+	date: Date;
+	timezone?: string;
+	isUtc: boolean;
+	originalString: string;
+}
+
+/**
  * Образец события для отладки и анализа данных календаря
  */
 interface SampleEvent {
@@ -129,8 +139,6 @@ export class Caldav implements INodeType {
 		],
 	};
 
-
-
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
 		const items = this.getInputData();
 		const returnData: INodeExecutionData[] = [];
@@ -138,10 +146,122 @@ export class Caldav implements INodeType {
 
 		const credentials = await this.getCredentials('caldavApi');
 
-		// Локальная функция для проверки повторяющихся событий
-		const isRecurringEventOnDate = (eventStartDate: Date, targetDate: Date, rrule: string): boolean => {
+		// Улучшенная функция для парсинга iCal дат с поддержкой таймзон
+		const parseICalDate = (dateStr: string, eventData: string): ParsedICalDate | null => {
+			try {
+				const cleanDateStr = dateStr.trim();
+				let date: Date;
+				let timezone: string | undefined;
+				let isUtc = false;
+
+				// Поиск VTIMEZONE в eventData для определения таймзоны
+				const timezoneMatch = eventData.match(/DTSTART;TZID=([^:]+):/);
+				if (timezoneMatch) {
+					timezone = timezoneMatch[1];
+				}
+
+				// Парсинг различных форматов дат
+				if (cleanDateStr.endsWith('Z')) {
+					// UTC формат: 20231025T120000Z
+					isUtc = true;
+					const year = parseInt(cleanDateStr.substring(0, 4));
+					const month = parseInt(cleanDateStr.substring(4, 6)) - 1;
+					const day = parseInt(cleanDateStr.substring(6, 8));
+					
+					if (cleanDateStr.includes('T')) {
+						const hour = parseInt(cleanDateStr.substring(9, 11));
+						const minute = parseInt(cleanDateStr.substring(11, 13));
+						const second = parseInt(cleanDateStr.substring(13, 15));
+						date = new Date(Date.UTC(year, month, day, hour, minute, second));
+					} else {
+						date = new Date(Date.UTC(year, month, day));
+					}
+				} else if (cleanDateStr.includes('T')) {
+					// Формат с временем: YYYYMMDDTHHMMSS
+					const year = parseInt(cleanDateStr.substring(0, 4));
+					const month = parseInt(cleanDateStr.substring(4, 6)) - 1;
+					const day = parseInt(cleanDateStr.substring(6, 8));
+					const hour = parseInt(cleanDateStr.substring(9, 11));
+					const minute = parseInt(cleanDateStr.substring(11, 13));
+					const second = parseInt(cleanDateStr.substring(13, 15));
+					
+					if (timezone) {
+						// Если есть таймзона, создаем дату как локальную, но помечаем таймзону
+						date = new Date(year, month, day, hour, minute, second);
+					} else {
+						// Локальное время
+						date = new Date(year, month, day, hour, minute, second);
+					}
+				} else if (cleanDateStr.includes('-')) {
+					// Формат YYYY-MM-DD
+					date = new Date(cleanDateStr);
+				} else if (cleanDateStr.length === 8) {
+					// Формат YYYYMMDD (только дата)
+					const year = parseInt(cleanDateStr.substring(0, 4));
+					const month = parseInt(cleanDateStr.substring(4, 6)) - 1;
+					const day = parseInt(cleanDateStr.substring(6, 8));
+					date = new Date(year, month, day);
+				} else {
+					return null;
+				}
+
+				return {
+					date,
+					timezone,
+					isUtc,
+					originalString: cleanDateStr
+				};
+			} catch (error) {
+				return null;
+			}
+		};
+
+		// Функция для конвертации в ISO формат с учетом таймзоны
+		const toISOWithTimezone = (parsedDate: ParsedICalDate): string => {
+			if (parsedDate.isUtc) {
+				return parsedDate.date.toISOString();
+			} else if (parsedDate.timezone) {
+				// Если есть таймзона, добавляем информацию о ней
+				return parsedDate.date.toISOString() + ` (${parsedDate.timezone})`;
+			} else {
+				// Локальное время
+				return parsedDate.date.toISOString();
+			}
+		};
+
+		// Функция для проверки исключенных дат (EXDATE)
+		const isDateExcluded = (targetDate: Date, eventData: string): boolean => {
+			const exdateMatches = eventData.match(/EXDATE[^:]*:([^\r\n]+)/g);
+			if (!exdateMatches) return false;
+			
+			for (const exdateMatch of exdateMatches) {
+				const dateMatch = exdateMatch.match(/EXDATE[^:]*:([^\r\n]+)/);
+				if (dateMatch) {
+					const exDateStr = dateMatch[1].trim();
+					const parsedExDate = parseICalDate(exDateStr, eventData);
+					if (parsedExDate) {
+						// Сравниваем только дату, игнорируя время
+						const exDate = parsedExDate.date;
+						if (exDate.getFullYear() === targetDate.getFullYear() &&
+							exDate.getMonth() === targetDate.getMonth() &&
+							exDate.getDate() === targetDate.getDate()) {
+							return true;
+						}
+					}
+				}
+			}
+			return false;
+		};
+
+		// Улучшенная функция для проверки повторяющихся событий
+		const isRecurringEventOnDate = (eventStartDate: Date, targetDate: Date, rrule: string, eventData: string): boolean => {
 			// Если событие началось после целевой даты, оно не может повториться в прошлом
 			if (eventStartDate > targetDate) {
+				return false;
+			}
+
+			// Проверяем исключенные даты (EXDATE)
+			if (isDateExcluded(targetDate, eventData)) {
 				return false;
 			}
 
@@ -161,79 +281,123 @@ export class Caldav implements INodeType {
 
 			// Проверяем окончание повторения
 			if (rules['UNTIL']) {
-				const untilDate = parseICalDate(rules['UNTIL']);
-				if (untilDate && targetDate > untilDate) {
+				const untilDate = parseICalDate(rules['UNTIL'], '');
+				if (untilDate && targetDate > untilDate.date) {
 					return false;
 				}
 			}
 
-			// Рассчитываем количество дней между событием и целевой датой
-			const daysDiff = Math.floor((targetDate.getTime() - eventStartDate.getTime()) / (1000 * 60 * 60 * 24));
+			// Проверяем количество повторений
+			if (rules['COUNT']) {
+				const count = parseInt(rules['COUNT']);
+				const interval = parseInt(rules['INTERVAL'] || '1');
+				
+				// Рассчитываем количество прошедших интервалов
+				const diffTime = targetDate.getTime() - eventStartDate.getTime();
+				const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+				
+				let intervalsPassed = 0;
+				switch (freq) {
+					case RecurrenceFrequency.DAILY:
+						intervalsPassed = Math.floor(diffDays / interval);
+						break;
+					case RecurrenceFrequency.WEEKLY:
+						intervalsPassed = Math.floor(diffDays / (7 * interval));
+						break;
+					case RecurrenceFrequency.MONTHLY:
+						// Приблизительный расчет для месяцев
+						intervalsPassed = Math.floor(diffDays / (30 * interval));
+						break;
+					case RecurrenceFrequency.YEARLY:
+						intervalsPassed = Math.floor(diffDays / (365 * interval));
+						break;
+				}
+				
+				if (intervalsPassed >= count) {
+					return false;
+				}
+			}
+
+			// Рассчитываем соответствие дат для каждой частоты
+			const interval = parseInt(rules['INTERVAL'] || '1');
 
 			switch (freq) {
 				case RecurrenceFrequency.DAILY: {
-					const interval = parseInt(rules['INTERVAL'] || '1');
-					return daysDiff % interval === 0;
+					const daysDiff = Math.floor((targetDate.getTime() - eventStartDate.getTime()) / (1000 * 60 * 60 * 24));
+					return daysDiff >= 0 && daysDiff % interval === 0;
 				}
 
 				case RecurrenceFrequency.WEEKLY: {
-					if (daysDiff % 7 !== 0) return false;
-					
-					// Проверяем дни недели (BYDAY)
+					// Проверяем дни недели (BYDAY) - ОБЯЗАТЕЛЬНО для недельных событий
 					if (rules['BYDAY']) {
 						const allowedDays = rules['BYDAY'].split(',');
 						const targetDayOfWeek = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'][targetDate.getDay()];
-						return allowedDays.includes(targetDayOfWeek);
+						if (!allowedDays.includes(targetDayOfWeek)) {
+							return false;
+						}
+					} else {
+						// Если BYDAY не указан, проверяем тот же день недели что и исходное событие
+						if (targetDate.getDay() !== eventStartDate.getDay()) {
+							return false;
+						}
 					}
 					
-					const weekInterval = parseInt(rules['INTERVAL'] || '1');
-					const weeksDiff = Math.floor(daysDiff / 7);
-					return weeksDiff % weekInterval === 0;
+					// Вычисляем количество недель между исходным событием и целевой датой
+					const msPerDay = 24 * 60 * 60 * 1000;
+					const msPerWeek = 7 * msPerDay;
+					
+					// Находим начало недели для исходного события (понедельник)
+					const eventWeekStart = new Date(eventStartDate);
+					eventWeekStart.setDate(eventStartDate.getDate() - ((eventStartDate.getDay() + 6) % 7));
+					eventWeekStart.setHours(0, 0, 0, 0);
+					
+					// Находим начало недели для целевой даты
+					const targetWeekStart = new Date(targetDate);
+					targetWeekStart.setDate(targetDate.getDate() - ((targetDate.getDay() + 6) % 7));
+					targetWeekStart.setHours(0, 0, 0, 0);
+					
+					// Вычисляем разность в неделях
+					const weeksDiff = Math.floor((targetWeekStart.getTime() - eventWeekStart.getTime()) / msPerWeek);
+					
+					// Проверяем соответствие интервалу
+					return weeksDiff >= 0 && weeksDiff % interval === 0;
 				}
 
 				case RecurrenceFrequency.MONTHLY: {
-					// Проверяем, что это тот же день месяца
+					// Проверяем конкретный день месяца (BYMONTHDAY)
 					if (rules['BYMONTHDAY']) {
 						const monthDay = parseInt(rules['BYMONTHDAY']);
-						return targetDate.getDate() === monthDay;
+						if (targetDate.getDate() !== monthDay) {
+							return false;
+						}
+					} else {
+						// Базовая проверка - тот же день месяца, что и в оригинальном событии
+						if (targetDate.getDate() !== eventStartDate.getDate()) {
+							return false;
+						}
 					}
 					
-					// Базовая проверка - тот же день месяца, что и в оригинальном событии
-					return targetDate.getDate() === eventStartDate.getDate();
+					// Проверяем месячный интервал
+					const monthsDiff = (targetDate.getFullYear() - eventStartDate.getFullYear()) * 12 
+						+ (targetDate.getMonth() - eventStartDate.getMonth());
+					
+					return monthsDiff >= 0 && monthsDiff % interval === 0;
 				}
 
 				case RecurrenceFrequency.YEARLY: {
 					// Проверяем, что это тот же день и месяц
-					return targetDate.getDate() === eventStartDate.getDate() &&
-						targetDate.getMonth() === eventStartDate.getMonth();
+					if (targetDate.getDate() !== eventStartDate.getDate() || 
+						targetDate.getMonth() !== eventStartDate.getMonth()) {
+						return false;
+					}
+					
+					const yearsDiff = targetDate.getFullYear() - eventStartDate.getFullYear();
+					return yearsDiff >= 0 && yearsDiff % interval === 0;
 				}
 
 				default:
 					return false;
 			}
-		};
-
-		// Локальная функция для парсинга дат iCalendar
-		const parseICalDate = (dateStr: string): Date | null => {
-			try {
-				if (dateStr.length === 8) {
-					// Формат YYYYMMDD
-					const year = parseInt(dateStr.substring(0, 4));
-					const month = parseInt(dateStr.substring(4, 6)) - 1;
-					const day = parseInt(dateStr.substring(6, 8));
-					return new Date(year, month, day);
-				} else if (dateStr.includes('T')) {
-					// Формат YYYYMMDDTHHMMSS
-					const dateOnly = dateStr.substring(0, 8);
-					const year = parseInt(dateOnly.substring(0, 4));
-					const month = parseInt(dateOnly.substring(4, 6)) - 1;
-					const day = parseInt(dateOnly.substring(6, 8));
-					return new Date(year, month, day);
-				}
-			} catch (error) {
-				return null;
-			}
-			return null;
 		};
 
 		for (let i = 0; i < items.length; i++) {
@@ -339,27 +503,11 @@ export class Caldav implements INodeType {
 									if (!match) continue;
 									
 									const dateStr = match[1];
-									let eventDate: Date;
+									const parsedDate = parseICalDate(dateStr, eventData);
 									
-									if (dateStr.includes('T')) {
-										// Формат с временем YYYYMMDDTHHMMSS
-										const dateOnly = dateStr.substring(0, 8);
-										const eventYear = parseInt(dateOnly.substring(0, 4));
-										const eventMonth = parseInt(dateOnly.substring(4, 6));
-										const eventDay = parseInt(dateOnly.substring(6, 8));
-										eventDate = new Date(eventYear, eventMonth - 1, eventDay);
-									} else if (dateStr.includes('-')) {
-										// Формат YYYY-MM-DD
-										eventDate = new Date(dateStr);
-									} else if (dateStr.length === 8) {
-										// Формат YYYYMMDD
-										const eventYear = parseInt(dateStr.substring(0, 4));
-										const eventMonth = parseInt(dateStr.substring(4, 6));
-										const eventDay = parseInt(dateStr.substring(6, 8));
-										eventDate = new Date(eventYear, eventMonth - 1, eventDay);
-									} else {
-										continue;
-									}
+									if (!parsedDate) continue;
+									
+									const eventDate = parsedDate.date;
 									
 									// Проверяем прямое совпадение даты
 									if (eventDate.toDateString() === targetDate.toDateString()) {
@@ -372,7 +520,7 @@ export class Caldav implements INodeType {
 									
 									// Проверяем правила повторения (RRULE)
 									const rruleMatch = eventData.match(/RRULE:([^\r\n]+)/);
-									if (rruleMatch && isRecurringEventOnDate(eventDate, targetDate, rruleMatch[1])) {
+									if (rruleMatch && isRecurringEventOnDate(eventDate, targetDate, rruleMatch[1], eventData)) {
 										eventsForDate.push({
 											...obj,
 											calendarData: eventData
@@ -398,13 +546,24 @@ export class Caldav implements INodeType {
 							const dtStartMatch = eventData.match(/DTSTART[^:]*:(.+)/);
 							const dtEndMatch = eventData.match(/DTEND[^:]*:(.+)/);
 							const uidMatch = eventData.match(/UID:(.+)/);
+							const locationMatch = eventData.match(/LOCATION:(.+)/);
+
+							// Парсим даты для ISO формата
+							const dtStartRaw = dtStartMatch ? dtStartMatch[1].trim() : '';
+							const dtEndRaw = dtEndMatch ? dtEndMatch[1].trim() : '';
+							
+							const parsedStartDate = dtStartRaw ? parseICalDate(dtStartRaw, eventData) : null;
+							const parsedEndDate = dtEndRaw ? parseICalDate(dtEndRaw, eventData) : null;
 
 							const eventInfo = {
 								uid: uidMatch ? uidMatch[1].trim() : '',
 								summary: summaryMatch ? summaryMatch[1].trim() : '',
 								description: descriptionMatch ? descriptionMatch[1].trim() : '',
-								dtStart: dtStartMatch ? dtStartMatch[1].trim() : '',
-								dtEnd: dtEndMatch ? dtEndMatch[1].trim() : '',
+								location: locationMatch ? locationMatch[1].trim() : '',
+								dtStart: dtStartRaw,
+								dtEnd: dtEndRaw,
+								dtStartISO: parsedStartDate ? toISOWithTimezone(parsedStartDate) : '',
+								dtEndISO: parsedEndDate ? toISOWithTimezone(parsedEndDate) : '',
 								url: event.url,
 								etag: event.etag,
 								calendarData: eventData,
