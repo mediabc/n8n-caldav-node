@@ -89,6 +89,7 @@ export class Caldav implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["operation"]}}',
 		description: 'Interact with CalDAV calendars',
+		usableAsTool: true,
 		defaults: {
 			name: 'CalDAV',
 		},
