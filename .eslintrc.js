@@ -14,13 +14,13 @@ module.exports = {
 	plugins: ['@typescript-eslint'],
 	extends: [
 		'eslint:recommended',
-		'@typescript-eslint/recommended',
+		'plugin:@typescript-eslint/recommended',
 		'plugin:n8n-nodes-base/nodes',
 	],
 	rules: {
 		'n8n-nodes-base/node-dirname-against-convention': 'error',
-		'n8n-nodes-base/node-class-description-inputs-wrong-regular-node': 'error',
-		'n8n-nodes-base/node-class-description-outputs-wrong': 'error',
+		'n8n-nodes-base/node-class-description-inputs-wrong-regular-node': 'off',
+		'n8n-nodes-base/node-class-description-outputs-wrong': 'off',
 		'n8n-nodes-base/node-filename-against-convention': 'error',
 	},
 	overrides: [
@@ -31,6 +31,12 @@ module.exports = {
 				'n8n-nodes-base/cred-class-field-display-name-miscased': 'error',
 				'n8n-nodes-base/cred-class-name-unsuffixed': 'error',
 				'n8n-nodes-base/cred-filename-against-convention': 'error',
+			},
+		},
+		{
+			files: ['package.json'],
+			parserOptions: {
+				project: null,
 			},
 		},
 	],

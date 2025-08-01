@@ -4,9 +4,66 @@ import {
 	INodeType,
 	INodeTypeDescription,
 	NodeOperationError,
+	NodeConnectionType,
 } from 'n8n-workflow';
 
 import * as dav from 'dav';
+
+/**
+ * Enum для частот повторения событий в RRULE
+ */
+enum RecurrenceFrequency {
+	DAILY = 'DAILY',
+	WEEKLY = 'WEEKLY',
+	MONTHLY = 'MONTHLY',
+	YEARLY = 'YEARLY'
+}
+
+/**
+ * Объект календаря с URL и данными
+ */
+interface CalendarObject {
+	url: string;
+	calendarData?: string;
+}
+
+/**
+ * Календарь с URL и объектами
+ */
+interface Calendar {
+	url: string;
+	objects?: CalendarObject[];
+}
+
+/**
+ * Событие календаря с поддержкой различных форматов дат
+ */
+interface CalendarEvent {
+	summary?: string;
+	start?: Date | string; // iCal может содержать строки дат
+	end?: Date | string;   // iCal может содержать строки дат
+	description?: string;
+	location?: string;
+	uid?: string;
+	url?: string;
+	etag?: string;
+	calendarData?: string;
+}
+
+/**
+ * Образец события для отладки и анализа данных календаря
+ */
+interface SampleEvent {
+	error?: string;
+	objectIndex?: number;
+	totalVEventBlocks?: number;
+	firstVEventPreview?: string;
+	calendarDataStart?: string;
+	eventIndex?: number;
+	dtStart?: string;
+	summary?: string;
+	eventDataPreview?: string;
+}
 
 export class Caldav implements INodeType {
 	description: INodeTypeDescription = {
@@ -20,8 +77,8 @@ export class Caldav implements INodeType {
 		defaults: {
 			name: 'CalDAV',
 		},
-		inputs: ['main' as any],
-		outputs: ['main' as any],
+		inputs: [NodeConnectionType.Main],
+		outputs: [NodeConnectionType.Main],
 		credentials: [
 			{
 				name: 'caldavApi',
@@ -114,11 +171,12 @@ export class Caldav implements INodeType {
 			const daysDiff = Math.floor((targetDate.getTime() - eventStartDate.getTime()) / (1000 * 60 * 60 * 24));
 
 			switch (freq) {
-				case 'DAILY':
+				case RecurrenceFrequency.DAILY: {
 					const interval = parseInt(rules['INTERVAL'] || '1');
 					return daysDiff % interval === 0;
+				}
 
-				case 'WEEKLY':
+				case RecurrenceFrequency.WEEKLY: {
 					if (daysDiff % 7 !== 0) return false;
 					
 					// Проверяем дни недели (BYDAY)
@@ -131,8 +189,9 @@ export class Caldav implements INodeType {
 					const weekInterval = parseInt(rules['INTERVAL'] || '1');
 					const weeksDiff = Math.floor(daysDiff / 7);
 					return weeksDiff % weekInterval === 0;
+				}
 
-				case 'MONTHLY':
+				case RecurrenceFrequency.MONTHLY: {
 					// Проверяем, что это тот же день месяца
 					if (rules['BYMONTHDAY']) {
 						const monthDay = parseInt(rules['BYMONTHDAY']);
@@ -141,11 +200,13 @@ export class Caldav implements INodeType {
 					
 					// Базовая проверка - тот же день месяца, что и в оригинальном событии
 					return targetDate.getDate() === eventStartDate.getDate();
+				}
 
-				case 'YEARLY':
+				case RecurrenceFrequency.YEARLY: {
 					// Проверяем, что это тот же день и месяц
-					return targetDate.getDate() === eventStartDate.getDate() && 
-						   targetDate.getMonth() === eventStartDate.getMonth();
+					return targetDate.getDate() === eventStartDate.getDate() &&
+						targetDate.getMonth() === eventStartDate.getMonth();
+				}
 
 				default:
 					return false;
@@ -202,12 +263,16 @@ export class Caldav implements INodeType {
 						// Находим нужный календарь по URL
 						const fullCalendarUrl = `${credentials.serverUrl}${calendarUrl}`;
 						
-						const calendar = account.calendars.find((cal: any) => 
+						const calendar = account.calendars.find((cal: Calendar) => 
 							cal.url === fullCalendarUrl || cal.url.endsWith(calendarUrl)
 						);
 
 						if (!calendar) {
-							throw new Error(`Calendar not found at URL: ${calendarUrl}. Available calendars: ${account.calendars.map((cal: any) => cal.url).join(', ')}`);
+							throw new NodeOperationError(
+								this.getNode(),
+								`Calendar not found at URL: ${calendarUrl}. Available calendars: ${account.calendars.map((cal: Calendar) => cal.url).join(', ')}`,
+								{ level: 'warning' }
+							);
 						}
 
 						// Формируем диапазон дат для запроса (день с 00:00 до 23:59)
@@ -238,7 +303,7 @@ export class Caldav implements INodeType {
 							});
 							
 							// Находим тот же календарь в новом аккаунте
-							const calendarWithObjects = accountWithObjects.calendars.find((cal: any) => 
+							const calendarWithObjects = accountWithObjects.calendars.find((cal: Calendar) => 
 								cal.url === calendar.url
 							);
 							
@@ -248,7 +313,7 @@ export class Caldav implements INodeType {
 						}
 						
 						// Фильтруем события по дате
-						const eventsForDate: any[] = [];
+						const eventsForDate: CalendarEvent[] = [];
 						
 						for (const obj of calendarObjects) {
 							if (!obj.calendarData) continue;
@@ -356,7 +421,7 @@ export class Caldav implements INodeType {
 						// Если событий не найдено, возвращаем информацию о поиске
 						if (eventsForDate.length === 0) {
 							// Добавляем примеры событий для отладки
-							const sampleEvents: any[] = [];
+							const sampleEvents: SampleEvent[] = [];
 							
 							// Анализируем первые несколько объектов календаря
 							for (let i = 0; i < Math.min(2, calendarObjects.length); i++) {
