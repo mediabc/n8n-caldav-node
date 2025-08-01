@@ -1,6 +1,6 @@
 {
-  "name": "n8n-caldav-node",
-  "version": "1.0.4",
+  "name": "n8n-nodes-caldav-calendar",
+  "version": "1.0.5",
   "description": "n8n community node for CalDAV calendar integration",
   "keywords": [
     "n8n-community-node-package",
@@ -8,14 +8,14 @@
     "calendar"
   ],
   "license": "MIT",
-  "homepage": "https://github.com/oambc/n8n-caldav-node",
+  "homepage": "https://github.com/oambc/n8n-nodes-caldav-calendar",
   "author": {
     "name": "oambc",
     "email": "oa@mediabc.ru"
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/oambc/n8n-caldav-node.git"
+    "url": "https://github.com/oambc/n8n-nodes-caldav-calendar.git"
   },
   "engines": {
     "node": ">=18.10",
