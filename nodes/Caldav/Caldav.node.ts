@@ -183,27 +183,42 @@ export class Caldav implements INodeType {
 							calendarPath = '/' + calendarPath;
 						}
 
-						// Извлекаем название календаря из URL (последняя часть пути)
-						const pathParts = calendarPath.split('/').filter(part => part.length > 0);
-						let calendarName = pathParts[pathParts.length - 1] || calendarPath;
+						// Пытаемся получить красивое название календаря
+						let calendarName = '';
 						
-						// Убираем trailing slash если есть
-						if (calendarName.endsWith('/')) {
-							calendarName = calendarName.slice(0, -1);
+						// Проверяем доступные свойства календаря для названия
+						if ((calendar as any).displayName) {
+							calendarName = (calendar as any).displayName;
+						} else if ((calendar as any).name) {
+							calendarName = (calendar as any).name;
+						} else if ((calendar as any).description) {
+							calendarName = (calendar as any).description;
+						} else {
+							// Fallback: извлекаем название из URL (последняя часть пути)
+							const pathParts = calendarPath.split('/').filter(part => part.length > 0);
+							calendarName = pathParts[pathParts.length - 1] || calendarPath;
+							
+							// Убираем trailing slash если есть
+							if (calendarName.endsWith('/')) {
+								calendarName = calendarName.slice(0, -1);
+							}
 						}
 
-						// Проверяем тип календаря по URL
+						// Проверяем тип календаря по URL и свойствам
 						let calendarType = 'Календарь';
-						if (calendarPath.includes('events')) {
+						if (calendarPath.includes('events') || (calendar as any).componentSet?.includes('VEVENT')) {
 							calendarType = 'События';
-						} else if (calendarPath.includes('todos') || calendarPath.includes('tasks')) {
+						} else if (calendarPath.includes('todos') || calendarPath.includes('tasks') || (calendar as any).componentSet?.includes('VTODO')) {
 							calendarType = 'Задачи';
 						}
 
+						// Формируем финальное название
+						const displayName = calendarName ? `${calendarName} (${calendarType})` : `${calendarType} - ${calendarPath}`;
+
 						calendarOptions.push({
-							name: `${calendarName} (${calendarType})`,
+							name: displayName,
 							value: calendarPath,
-							description: `Путь: ${calendarPath}`,
+							description: `Путь: ${calendarPath}${(calendar as any).description ? ` | ${(calendar as any).description}` : ''}`,
 						});
 					}
 
@@ -730,25 +745,15 @@ export class Caldav implements INodeType {
 								}
 							}
 
-							returnData.push({
-								json: {
-									message: `No events found for ${targetDate.toDateString()}`,
-									date: date,
-									calendarUrl: calendarUrl,
-									totalObjectsFound: calendarObjects.length,
-									searchedDate: targetDate.toISOString(),
-									targetDateString: targetDate.toDateString(),
-									debug: {
-										serverUrl: credentials.serverUrl,
-										foundCalendars: account.calendars.length,
-										selectedCalendarUrl: calendar.url,
-										sampleEvents: sampleEvents
-									}
-								},
-								pairedItem: {
-									item: i,
-								},
-							});
+							// Выбрасываем ошибку когда события не найдены
+							throw new NodeOperationError(
+								this.getNode(),
+								`No events found for ${targetDate.toDateString()}. Calendar: ${calendarUrl}, Objects found: ${calendarObjects.length}`,
+								{
+									itemIndex: i,
+									description: 'События на указанную дату не найдены',
+								}
+							);
 						}
 
 					} catch (error) {
