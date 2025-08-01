@@ -547,6 +547,7 @@ export class Caldav implements INodeType {
 							const dtEndMatch = eventData.match(/DTEND[^:]*:(.+)/);
 							const uidMatch = eventData.match(/UID:(.+)/);
 							const locationMatch = eventData.match(/LOCATION:(.+)/);
+							const webUrlMatch = eventData.match(/URL:(.+)/);
 
 							// Парсим даты для ISO формата
 							const dtStartRaw = dtStartMatch ? dtStartMatch[1].trim() : '';
@@ -560,6 +561,7 @@ export class Caldav implements INodeType {
 								summary: summaryMatch ? summaryMatch[1].trim() : '',
 								description: descriptionMatch ? descriptionMatch[1].trim() : '',
 								location: locationMatch ? locationMatch[1].trim() : '',
+								webUrl: webUrlMatch ? webUrlMatch[1].trim() : '',
 								dtStart: dtStartRaw,
 								dtEnd: dtEndRaw,
 								dtStartISO: parsedStartDate ? toISOWithTimezone(parsedStartDate) : '',
