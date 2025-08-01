@@ -1,6 +1,6 @@
 {
   "name": "n8n-caldav-node",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "n8n community node for CalDAV calendar integration",
   "keywords": [
     "n8n-community-node-package",
@@ -29,6 +29,7 @@
     "format": "prettier nodes credentials --write",
     "lint": "eslint nodes credentials package.json",
     "lintfix": "eslint nodes credentials package.json --fix",
+    "test": "mocha test/*.js",
     "prepublishOnly": "npm run build && npm run lint -s"
   },
   "files": [
@@ -49,6 +50,7 @@
     "eslint": "^8.56.0",
     "eslint-plugin-n8n-nodes-base": "^1.16.1",
     "gulp": "^4.0.2",
+    "mocha": "^10.2.0",
     "n8n-workflow": "*",
     "prettier": "^3.3.2",
     "typescript": "^5.5.3"
