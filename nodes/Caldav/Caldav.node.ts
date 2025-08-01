@@ -5,6 +5,8 @@ import {
 	INodeTypeDescription,
 	NodeOperationError,
 	NodeConnectionType,
+	ILoadOptionsFunctions,
+	INodePropertyOptions,
 } from 'n8n-workflow';
 
 import * as dav from 'dav';
@@ -112,12 +114,14 @@ export class Caldav implements INodeType {
 				],
 			},
 			{
-				displayName: 'Calendar URL',
+				displayName: 'Calendar',
 				name: 'calendarUrl',
-				type: 'string',
+				type: 'options',
 				default: '',
-				placeholder: '/calendars/user/calendar-name/',
-				description: 'Calendar path on the CalDAV server',
+				description: 'Выберите календарь из списка доступных',
+				typeOptions: {
+					loadOptionsMethod: 'getCalendars',
+				},
 				displayOptions: {
 					show: {
 						operation: ['getEvents'],
@@ -137,6 +141,89 @@ export class Caldav implements INodeType {
 				},
 			},
 		],
+	};
+
+	methods = {
+		loadOptions: {
+			async getCalendars(this: ILoadOptionsFunctions): Promise<INodePropertyOptions[]> {
+				try {
+					const credentials = await this.getCredentials('caldavApi');
+
+					// Создаем транспорт для аутентификации
+					const xhr = new dav.transport.Basic(
+						new dav.Credentials({
+							username: credentials.username as string,
+							password: credentials.password as string,
+						})
+					);
+
+					// Создаем аккаунт CalDAV и загружаем календари
+					const account = await dav.createAccount({
+						server: credentials.serverUrl as string,
+						xhr: xhr,
+						accountType: 'caldav',
+						loadCollections: true,
+						loadObjects: false,
+					});
+
+					// Преобразуем календари в опции для выпадающего списка
+					const calendarOptions: INodePropertyOptions[] = [];
+
+					for (const calendar of account.calendars) {
+						// Извлекаем относительный путь календаря (убираем serverUrl)
+						const serverUrl = credentials.serverUrl as string;
+						let calendarPath = calendar.url;
+						
+						if (calendarPath.startsWith(serverUrl)) {
+							calendarPath = calendarPath.substring(serverUrl.length);
+						}
+						
+						// Если путь не начинается с /, добавляем его
+						if (!calendarPath.startsWith('/')) {
+							calendarPath = '/' + calendarPath;
+						}
+
+						// Извлекаем название календаря из URL (последняя часть пути)
+						const pathParts = calendarPath.split('/').filter(part => part.length > 0);
+						let calendarName = pathParts[pathParts.length - 1] || calendarPath;
+						
+						// Убираем trailing slash если есть
+						if (calendarName.endsWith('/')) {
+							calendarName = calendarName.slice(0, -1);
+						}
+
+						// Проверяем тип календаря по URL
+						let calendarType = 'Календарь';
+						if (calendarPath.includes('events')) {
+							calendarType = 'События';
+						} else if (calendarPath.includes('todos') || calendarPath.includes('tasks')) {
+							calendarType = 'Задачи';
+						}
+
+						calendarOptions.push({
+							name: `${calendarName} (${calendarType})`,
+							value: calendarPath,
+							description: `Путь: ${calendarPath}`,
+						});
+					}
+
+					// Сортируем календари по названию
+					calendarOptions.sort((a, b) => a.name.localeCompare(b.name));
+
+					return calendarOptions;
+
+				} catch (error) {
+					// Возвращаем заглушку при ошибке для отладки
+					return [
+						{
+							name: 'Ошибка загрузки календарей',
+							value: '/calendars/error',
+							description: `Ошибка: ${(error as Error).message}`,
+						},
+					];
+				}
+			},
+		},
 	};
 
 	async execute(this: IExecuteFunctions): Promise<INodeExecutionData[][]> {
@@ -432,9 +519,30 @@ export class Caldav implements INodeType {
 						);
 
 						if (!calendar) {
+							// Подготовим удобный список календарей для пользователя
+							const calendarList = account.calendars.map((cal: Calendar) => {
+								const serverUrl = credentials.serverUrl as string;
+								let calendarPath = cal.url;
+								
+								// Убираем serverUrl для краткости
+								if (calendarPath.startsWith(serverUrl)) {
+									calendarPath = calendarPath.substring(serverUrl.length);
+								}
+								
+								// Определяем тип календаря
+								let type = 'календарь';
+								if (calendarPath.includes('events')) {
+									type = 'события';
+								} else if (calendarPath.includes('todos') || calendarPath.includes('tasks')) {
+									type = 'задачи';
+								}
+								
+								return `  📅 ${calendarPath} (${type})`;
+							}).join('\n');
+
 							throw new NodeOperationError(
 								this.getNode(),
-								`Calendar not found at URL: ${calendarUrl}. Available calendars: ${account.calendars.map((cal: Calendar) => cal.url).join(', ')}`,
+								`❌ Календарь не найден: ${calendarUrl}\n\n📋 Доступные календари:\n${calendarList}\n\n💡 Скопируйте нужный путь из списка выше в поле "Calendar URL"`,
 								{ level: 'warning' }
 							);
 						}
