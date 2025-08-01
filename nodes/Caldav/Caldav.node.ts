@@ -22,11 +22,14 @@ enum RecurrenceFrequency {
 }
 
 /**
- * Объект календаря с URL и данными
+ * Структура объекта календаря DAV
  */
 interface CalendarObject {
 	url: string;
-	calendarData?: string;
+	displayName?: string;
+	name?: string;
+	description?: string;
+	componentSet?: string[];
 }
 
 /**
@@ -114,11 +117,11 @@ export class Caldav implements INodeType {
 				],
 			},
 			{
-				displayName: 'Calendar',
+				displayName: 'Calendar Name or ID',
 				name: 'calendarUrl',
 				type: 'options',
 				default: '',
-				description: 'Выберите календарь из списка доступных',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
 				typeOptions: {
 					loadOptionsMethod: 'getCalendars',
 				},
@@ -187,12 +190,12 @@ export class Caldav implements INodeType {
 						let calendarName = '';
 						
 						// Проверяем доступные свойства календаря для названия
-						if ((calendar as any).displayName) {
-							calendarName = (calendar as any).displayName;
-						} else if ((calendar as any).name) {
-							calendarName = (calendar as any).name;
-						} else if ((calendar as any).description) {
-							calendarName = (calendar as any).description;
+						if ((calendar as CalendarObject).displayName) {
+							calendarName = (calendar as CalendarObject).displayName!;
+						} else if ((calendar as CalendarObject).name) {
+							calendarName = (calendar as CalendarObject).name!;
+						} else if ((calendar as CalendarObject).description) {
+							calendarName = (calendar as CalendarObject).description!;
 						} else {
 							// Fallback: извлекаем название из URL (последняя часть пути)
 							const pathParts = calendarPath.split('/').filter(part => part.length > 0);
@@ -206,9 +209,9 @@ export class Caldav implements INodeType {
 
 						// Проверяем тип календаря по URL и свойствам
 						let calendarType = 'Календарь';
-						if (calendarPath.includes('events') || (calendar as any).componentSet?.includes('VEVENT')) {
+						if (calendarPath.includes('events') || (calendar as CalendarObject).componentSet?.includes('VEVENT')) {
 							calendarType = 'События';
-						} else if (calendarPath.includes('todos') || calendarPath.includes('tasks') || (calendar as any).componentSet?.includes('VTODO')) {
+						} else if (calendarPath.includes('todos') || calendarPath.includes('tasks') || (calendar as CalendarObject).componentSet?.includes('VTODO')) {
 							calendarType = 'Задачи';
 						}
 
@@ -218,7 +221,7 @@ export class Caldav implements INodeType {
 						calendarOptions.push({
 							name: displayName,
 							value: calendarPath,
-							description: `Путь: ${calendarPath}${(calendar as any).description ? ` | ${(calendar as any).description}` : ''}`,
+							description: `Путь: ${calendarPath}${(calendar as CalendarObject).description ? ` | ${(calendar as CalendarObject).description}` : ''}`,
 						});
 					}
 

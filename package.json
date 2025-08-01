@@ -1,6 +1,6 @@
 {
   "name": "n8n-caldav-node",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "n8n community node for CalDAV calendar integration",
   "keywords": [
     "n8n-community-node-package",
