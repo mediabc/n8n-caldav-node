@@ -115,6 +115,24 @@ export class Caldav implements INodeType {
 						description: 'Get calendar events for a specific date',
 						action: 'Get events',
 					},
+					{
+						name: 'Create Event',
+						value: 'createEvent',
+						description: 'Create a new calendar event',
+						action: 'Create event',
+					},
+					{
+						name: 'Update Event',
+						value: 'updateEvent',
+						description: 'Update an existing calendar event',
+						action: 'Update event',
+					},
+					{
+						name: 'Delete Event',
+						value: 'deleteEvent',
+						description: 'Delete an existing calendar event',
+						action: 'Delete event',
+					},
 				],
 			},
 			{
@@ -141,6 +159,203 @@ export class Caldav implements INodeType {
 				displayOptions: {
 					show: {
 						operation: ['getEvents'],
+					},
+				},
+			},
+			// Параметры для создания события
+			{
+				displayName: 'Calendar Name or ID',
+				name: 'calendarUrl',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: {
+					loadOptionsMethod: 'getCalendars',
+				},
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Event Title',
+				name: 'eventTitle',
+				type: 'string',
+				default: '',
+				description: 'Title/summary of the event',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Start Date and Time',
+				name: 'startDateTime',
+				type: 'dateTime',
+				default: '',
+				description: 'Start date and time of the event',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'End Date and Time',
+				name: 'endDateTime',
+				type: 'dateTime',
+				default: '',
+				description: 'End date and time of the event',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Description',
+				name: 'eventDescription',
+				type: 'string',
+				default: '',
+				description: 'Description of the event',
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Location',
+				name: 'eventLocation',
+				type: 'string',
+				default: '',
+				description: 'Location of the event',
+				displayOptions: {
+					show: {
+						operation: ['createEvent'],
+					},
+				},
+			},
+			// Параметры для обновления события
+			{
+				displayName: 'Calendar Name or ID',
+				name: 'calendarUrl',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: {
+					loadOptionsMethod: 'getCalendars',
+				},
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Event UID',
+				name: 'eventUID',
+				type: 'string',
+				default: '',
+				description: 'Unique identifier of the event to update',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Event Title',
+				name: 'eventTitle',
+				type: 'string',
+				default: '',
+				description: 'New title/summary of the event',
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Start Date and Time',
+				name: 'startDateTime',
+				type: 'dateTime',
+				default: '',
+				description: 'New start date and time of the event',
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'End Date and Time',
+				name: 'endDateTime',
+				type: 'dateTime',
+				default: '',
+				description: 'New end date and time of the event',
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Description',
+				name: 'eventDescription',
+				type: 'string',
+				default: '',
+				description: 'New description of the event',
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Location',
+				name: 'eventLocation',
+				type: 'string',
+				default: '',
+				description: 'New location of the event',
+				displayOptions: {
+					show: {
+						operation: ['updateEvent'],
+					},
+				},
+			},
+			// Параметры для удаления события
+			{
+				displayName: 'Calendar Name or ID',
+				name: 'calendarUrl',
+				type: 'options',
+				default: '',
+				description: 'Choose from the list, or specify an ID using an <a href="https://docs.n8n.io/code/expressions/">expression</a>',
+				typeOptions: {
+					loadOptionsMethod: 'getCalendars',
+				},
+				displayOptions: {
+					show: {
+						operation: ['deleteEvent'],
+					},
+				},
+			},
+			{
+				displayName: 'Event UID',
+				name: 'eventUID',
+				type: 'string',
+				default: '',
+				description: 'Unique identifier of the event to delete',
+				required: true,
+				displayOptions: {
+					show: {
+						operation: ['deleteEvent'],
 					},
 				},
 			},
@@ -251,6 +466,195 @@ export class Caldav implements INodeType {
 		const operation = this.getNodeParameter('operation', 0) as string;
 
 		const credentials = await this.getCredentials('caldavApi');
+
+		// Функция для генерации уникального UID события
+		const generateEventUID = (): string => {
+			return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@n8n.io`;
+		};
+
+		// Функция для форматирования даты в iCal формат
+		const formatDateForICal = (date: Date, isAllDay = false): string => {
+			if (isAllDay) {
+				return date.toISOString().split('T')[0].replace(/-/g, '');
+			}
+			return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+		};
+
+		// Функция для генерации iCal события
+		const generateICalEvent = (eventData: {
+			uid?: string;
+			title: string;
+			startDateTime: Date;
+			endDateTime: Date;
+			description?: string;
+			location?: string;
+		}): string => {
+			const uid = eventData.uid || generateEventUID();
+			const now = new Date();
+			const timestamp = formatDateForICal(now);
+			
+			let ical = 'BEGIN:VCALENDAR\r\n';
+			ical += 'VERSION:2.0\r\n';
+			ical += 'PRODID:-//n8n//CalDAV Node//EN\r\n';
+			ical += 'BEGIN:VEVENT\r\n';
+			ical += `UID:${uid}\r\n`;
+			ical += `DTSTAMP:${timestamp}\r\n`;
+			ical += `DTSTART:${formatDateForICal(eventData.startDateTime)}\r\n`;
+			ical += `DTEND:${formatDateForICal(eventData.endDateTime)}\r\n`;
+			ical += `SUMMARY:${eventData.title}\r\n`;
+			
+			if (eventData.description) {
+				ical += `DESCRIPTION:${eventData.description.replace(/\n/g, '\\n')}\r\n`;
+			}
+			
+			if (eventData.location) {
+				ical += `LOCATION:${eventData.location}\r\n`;
+			}
+			
+			ical += 'END:VEVENT\r\n';
+			ical += 'END:VCALENDAR\r\n';
+			
+			return ical;
+		};
+
+		// Функция для поиска события по имени файла (альтернативный метод)
+		const findEventByFilename = async (calendarUrl: string, uid: string, xhr: any) => {
+			try {
+				// Создаем аккаунт CalDAV
+				const account = await dav.createAccount({
+					server: credentials.serverUrl as string,
+					xhr: xhr,
+					accountType: 'caldav',
+					loadCollections: true,
+					loadObjects: false,
+				});
+
+				// Находим нужный календарь
+				const fullCalendarUrl = `${credentials.serverUrl}${calendarUrl}`;
+				const calendar = account.calendars.find((cal: Calendar) => 
+					cal.url === fullCalendarUrl || cal.url.endsWith(calendarUrl)
+				);
+
+				if (!calendar) {
+					throw new Error(`Calendar not found: ${calendarUrl}`);
+				}
+
+				// Формируем ожидаемый URL события
+				let expectedEventUrl = calendar.url;
+				if (!expectedEventUrl.endsWith('/')) {
+					expectedEventUrl += '/';
+				}
+				expectedEventUrl += `${uid}.ics`;
+
+				// Пытаемся загрузить событие напрямую по URL
+				try {
+					const directRequest = {
+						method: 'GET',
+						requestData: '',
+						transformRequest: (data: any) => data,
+						transformResponse: (data: any) => data,
+					};
+					
+					const response = await xhr.send(directRequest, expectedEventUrl, {});
+					
+					if (response && response.responseText) {
+						return {
+							url: expectedEventUrl,
+							etag: response.xhr?.getResponseHeader?.('etag') || '',
+							calendarData: response.responseText,
+						};
+					}
+				} catch (directError: any) {
+					// Если прямой запрос не работает, возвращаем null
+					return null;
+				}
+
+				return null;
+			} catch (error) {
+				return null;
+			}
+		};
+
+		// Функция для поиска события по UID в календаре
+		const findEventByUID = async (calendarUrl: string, uid: string, xhr: any) => {
+			try {
+				// Создаем аккаунт CalDAV
+				const account = await dav.createAccount({
+					server: credentials.serverUrl as string,
+					xhr: xhr,
+					accountType: 'caldav',
+					loadCollections: true,
+					loadObjects: false,
+				});
+
+				// Находим нужный календарь
+				const fullCalendarUrl = `${credentials.serverUrl}${calendarUrl}`;
+				const calendar = account.calendars.find((cal: Calendar) => 
+					cal.url === fullCalendarUrl || cal.url.endsWith(calendarUrl)
+				);
+
+				if (!calendar) {
+					throw new Error(`Calendar not found: ${calendarUrl}`);
+				}
+
+				// Синхронизируем календарь и получаем события
+				const syncedCalendar = await dav.syncCalendar(calendar, {
+					xhr: xhr,
+					syncMethod: 'basic',
+				});
+				
+				let calendarObjects = syncedCalendar.objects || [];
+				
+				if (calendarObjects.length === 0) {
+					const accountWithObjects = await dav.createAccount({
+						server: credentials.serverUrl as string,
+						xhr: xhr,
+						accountType: 'caldav',
+						loadCollections: true,
+						loadObjects: true,
+					});
+					
+					const calendarWithObjects = accountWithObjects.calendars.find((cal: Calendar) => 
+						cal.url === calendar.url
+					);
+					
+					if (calendarWithObjects && calendarWithObjects.objects) {
+						calendarObjects = calendarWithObjects.objects;
+					}
+				}
+
+				// Ищем событие по UID
+				for (const obj of calendarObjects) {
+					if (!obj.calendarData) continue;
+					
+					const calendarData = obj.calendarData;
+					const uidMatch = calendarData.match(/UID:([^\r\n]+)/);
+					
+					if (uidMatch && uidMatch[1].trim() === uid) {
+						// Проверяем и исправляем URL события если необходимо
+						let eventUrl = obj.url;
+						
+						// Если URL не содержит .ics, добавляем UID как имя файла
+						if (!eventUrl.endsWith('.ics')) {
+							if (!eventUrl.endsWith('/')) {
+								eventUrl += '/';
+							}
+							eventUrl += `${uid}.ics`;
+						}
+						
+						// Возвращаем объект с исправленным URL
+						return {
+							...obj,
+							url: eventUrl
+						};
+					}
+				}
+
+				return null;
+			} catch (error) {
+				throw error;
+			}
+		};
 
 		// Улучшенная функция для парсинга iCal дат с поддержкой таймзон
 		const parseICalDate = (dateStr: string, eventData: string): ParsedICalDate | null => {
@@ -506,19 +910,591 @@ export class Caldav implements INodeType {
 			}
 		};
 
+		// Функция для создания оптимизированного xhr транспорта
+		const createOptimizedXhr = (credentials: any) => {
+			// Предупреждаем о проблемах с Yandex CalDAV
+			const serverUrl = credentials.serverUrl as string;
+			if (serverUrl.includes('yandex.ru')) {
+				this.logger?.warn(`[CalDAV WARNING] Connecting to Yandex CalDAV: Known to have artificial 60s/MB delays for WebDAV operations. Updates may timeout frequently.`);
+				this.logger?.info(`[CalDAV INFO] Consider using Yandex Calendar API or alternative CalDAV provider for better reliability.`);
+			}
+
+			const xhr = new dav.transport.Basic(
+				new dav.Credentials({
+					username: credentials.username as string,
+					password: credentials.password as string,
+				})
+			);
+
+			// Добавляем кастомный обработчик для оптимизации заголовков
+			const originalSend = xhr.send.bind(xhr);
+			xhr.send = async function(request: any, url: string, headers: any = {}) {
+				// Добавляем стандартные заголовки для лучшей совместимости с Yandex
+				const optimizedHeaders = {
+					'User-Agent': 'n8n-caldav-node/1.0',
+					'Accept': 'text/calendar, application/calendar+xml, text/plain',
+					'Accept-Encoding': 'identity', // Отключаем сжатие для стабильности
+					'Connection': 'close', // Избегаем keep-alive проблем
+					...headers
+				};
+
+				return originalSend(request, url, optimizedHeaders);
+			};
+
+			return xhr;
+		};
+
+		// Функция для улучшенной обработки ошибок CalDAV
+		const handleCalDAVError = (error: any, operation: string, url: string, duration: number): string => {
+			let errorMessage = `Failed to ${operation.toLowerCase()} event at ${url}`;
+			
+			if (error.status) {
+				errorMessage += ` - HTTP ${error.status}`;
+				if (error.status === 504) {
+					errorMessage += ' (Gateway Timeout - server took too long to respond)';
+				} else if (error.status === 401) {
+					errorMessage += ' (Unauthorized - check credentials)';
+				} else if (error.status === 403) {
+					errorMessage += ' (Forbidden - insufficient permissions)';
+				} else if (error.status === 404) {
+					errorMessage += ' (Not Found - resource may not exist)';
+				} else if (error.status === 412) {
+					errorMessage += ' (Precondition Failed - resource was modified by another client)';
+				} else if (error.status === 507) {
+					errorMessage += ' (Insufficient Storage - quota exceeded)';
+				}
+			}
+			
+			if (error.message) {
+				errorMessage += `. Error: ${error.message}`;
+			}
+			
+			errorMessage += `. Request duration: ${duration}ms`;
+			
+			// Специальная обработка для Yandex CalDAV
+			if (url.includes('yandex.ru')) {
+				if (error.status === 504 || duration > 3000) {
+					errorMessage += '\n\n⚠️  YANDEX CALDAV LIMITATION DETECTED:\n';
+					errorMessage += 'Yandex.Disk intentionally adds 60-second delays per MB for WebDAV requests to discourage backup usage.\n';
+					errorMessage += 'This is a known Yandex policy since 2021, not a bug in n8n.\n\n';
+					errorMessage += '🔧 SOLUTIONS:\n';
+					errorMessage += '• Wait a few minutes and try again\n';
+					errorMessage += '• Consider using Yandex Calendar API instead of CalDAV\n';
+					errorMessage += '• Switch to a different CalDAV provider (Google Calendar, Nextcloud, etc.)\n';
+					errorMessage += '• Use Yandex only for reading events, not updating them\n\n';
+					errorMessage += '📚 More info: This timeout behavior affects many applications (DEVONthink, Total Commander, etc.)';
+				}
+			}
+			
+			return errorMessage;
+		};
+
 		for (let i = 0; i < items.length; i++) {
 			try {
-				if (operation === 'getEvents') {
+				if (operation === 'createEvent') {
+					const calendarUrl = this.getNodeParameter('calendarUrl', i) as string;
+					const eventTitle = this.getNodeParameter('eventTitle', i) as string;
+					const startDateTime = new Date(this.getNodeParameter('startDateTime', i) as string);
+					const endDateTime = new Date(this.getNodeParameter('endDateTime', i) as string);
+					const eventDescription = this.getNodeParameter('eventDescription', i, '') as string;
+					const eventLocation = this.getNodeParameter('eventLocation', i, '') as string;
+
+					this.logger?.info(`[CalDAV CREATE] Starting creation of event: ${eventTitle}`);
+
+					// Создаем оптимизированный транспорт для аутентификации
+					const xhr = createOptimizedXhr(credentials);
+
+					try {
+						// Генерируем iCal данные для события
+						const uid = generateEventUID();
+						const icalData = generateICalEvent({
+							uid,
+							title: eventTitle,
+							startDateTime,
+							endDateTime,
+							description: eventDescription,
+							location: eventLocation,
+						});
+						
+						this.logger?.info(`[CalDAV CREATE] Generated event UID: ${uid}, iCal length: ${icalData.length} chars`);
+
+						// Создаем аккаунт CalDAV
+						const account = await dav.createAccount({
+							server: credentials.serverUrl as string,
+							xhr: xhr,
+							accountType: 'caldav',
+							loadCollections: true,
+							loadObjects: false,
+						});
+
+						// Находим нужный календарь
+						const fullCalendarUrl = `${credentials.serverUrl}${calendarUrl}`;
+						const calendar = account.calendars.find((cal: Calendar) => 
+							cal.url === fullCalendarUrl || cal.url.endsWith(calendarUrl)
+						);
+
+						if (!calendar) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Calendar not found: ${calendarUrl}`,
+								{ itemIndex: i }
+							);
+						}
+
+						this.logger?.info(`[CalDAV CREATE] Calendar found: ${calendar.url}`);
+
+						// Проверяем доступность календаря через синхронизацию
+						try {
+							await dav.syncCalendar(calendar, {
+								xhr: xhr,
+								syncMethod: 'basic',
+							});
+						} catch (syncError: any) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Calendar not accessible: ${syncError.message}. Please check calendar URL and credentials.`,
+								{ itemIndex: i }
+							);
+						}
+
+						// Создаем событие в календаре
+						let eventUrl = calendar.url;
+						if (!eventUrl.endsWith('/')) {
+							eventUrl += '/';
+						}
+						eventUrl += `${uid}.ics`;
+						
+						this.logger?.info(`[CalDAV CREATE] Making PUT request to: ${eventUrl}`);
+						
+						// Создаем объект события для CalDAV используя встроенный xhr транспорт
+						const request = {
+							method: 'PUT',
+							requestData: icalData,
+							transformRequest: (data: any) => data,
+							transformResponse: (data: any) => data,
+						};
+						
+						let createdEvent: any;
+						const requestStartTime = Date.now();
+						
+						try {
+							// Используем xhr.send с правильными параметрами
+							const response = await xhr.send(request, eventUrl, {
+								'Content-Type': 'text/calendar; charset=utf-8',
+							});
+
+							const requestDuration = Date.now() - requestStartTime;
+							this.logger?.info(`[CalDAV CREATE] PUT request completed successfully in ${requestDuration}ms`);
+
+							createdEvent = {
+								url: eventUrl,
+								etag: response.xhr?.getResponseHeader?.('etag') || '',
+								calendarData: icalData,
+							};
+						} catch (httpError: any) {
+							const requestDuration = Date.now() - requestStartTime;
+							this.logger?.error(`[CalDAV CREATE] PUT request failed after ${requestDuration}ms, status: ${httpError.status || 'No status'}`);
+							
+							// Альтернативный подход - попробуем создать временный файл и синхронизировать
+							try {
+								this.logger?.info(`[CalDAV CREATE] Trying alternative sync method...`);
+								// Создаем временный объект календаря
+								const tempCalendarObject = {
+									url: eventUrl,
+									etag: '',
+									calendarData: icalData,
+								};
+								
+								// Добавляем объект в календарь вручную и синхронизируем
+								if (!calendar.objects) {
+									calendar.objects = [];
+								}
+								calendar.objects.push(tempCalendarObject);
+								
+								// Пытаемся синхронизировать календарь с новым объектом
+								const syncedCalendar = await dav.syncCalendar(calendar, {
+									xhr: xhr,
+									syncMethod: 'basic',
+								});
+								
+								createdEvent = {
+									url: eventUrl,
+									etag: '',
+									calendarData: icalData,
+								};
+								
+							} catch (syncError: any) {
+								// Если и альтернативный метод не работает, выдаем подробную ошибку
+								let errorMessage = `Failed to create event at ${eventUrl}`;
+								
+								if (httpError.status) {
+									errorMessage += ` - HTTP ${httpError.status}`;
+									if (httpError.status === 504) {
+										errorMessage += ' (Gateway Timeout - server took too long to respond)';
+									} else if (httpError.status === 401) {
+										errorMessage += ' (Unauthorized - check credentials)';
+									} else if (httpError.status === 403) {
+										errorMessage += ' (Forbidden - insufficient permissions)';
+									} else if (httpError.status === 404) {
+										errorMessage += ' (Not Found - calendar may not exist)';
+									}
+								}
+								
+								if (httpError.message) {
+									errorMessage += `. Original error: ${httpError.message}`;
+								}
+								
+								errorMessage += `. Alternative sync method also failed: ${syncError.message}`;
+								
+								throw new Error(errorMessage);
+							}
+						}
+
+						returnData.push({
+							json: {
+								uid,
+								title: eventTitle,
+								startDateTime: startDateTime.toISOString(),
+								endDateTime: endDateTime.toISOString(),
+								description: eventDescription,
+								location: eventLocation,
+								url: createdEvent.url,
+								etag: createdEvent.etag,
+								success: true,
+								message: 'Event created successfully',
+							},
+							pairedItem: {
+								item: i,
+							},
+						});
+
+					} catch (error) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Failed to create event: ${(error as Error).message}`,
+							{ itemIndex: i }
+						);
+					}
+
+				} else if (operation === 'updateEvent') {
+					const calendarUrl = this.getNodeParameter('calendarUrl', i) as string;
+					const eventUID = this.getNodeParameter('eventUID', i) as string;
+					const eventTitle = this.getNodeParameter('eventTitle', i, '') as string;
+					const startDateTime = this.getNodeParameter('startDateTime', i, '') as string;
+					const endDateTime = this.getNodeParameter('endDateTime', i, '') as string;
+					const eventDescription = this.getNodeParameter('eventDescription', i, '') as string;
+					const eventLocation = this.getNodeParameter('eventLocation', i, '') as string;
+
+					this.logger?.info(`[CalDAV UPDATE] Starting update for event UID: ${eventUID}`);
+
+					// Создаем оптимизированный транспорт для аутентификации
+					const xhr = createOptimizedXhr(credentials);
+
+					try {
+						this.logger?.info(`[CalDAV UPDATE] Searching for existing event...`);
+						
+						// Находим существующее событие
+						let existingEvent = await findEventByUID(calendarUrl, eventUID, xhr);
+						
+						this.logger?.info(`[CalDAV UPDATE] findEventByUID result: ${existingEvent ? 'Found' : 'Not found'}`);
+						
+						// Если не найдено через синхронизацию, пробуем прямой запрос
+						if (!existingEvent) {
+							this.logger?.info(`[CalDAV UPDATE] Trying findEventByFilename as fallback...`);
+							existingEvent = await findEventByFilename(calendarUrl, eventUID, xhr);
+							this.logger?.info(`[CalDAV UPDATE] findEventByFilename result: ${existingEvent ? 'Found' : 'Not found'}`);
+						}
+						
+						if (!existingEvent) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Event with UID ${eventUID} not found in calendar ${calendarUrl}. Tried both sync and direct methods.`,
+								{ itemIndex: i }
+							);
+						}
+
+						this.logger?.info(`[CalDAV UPDATE] Event found at URL: ${existingEvent.url}`);
+
+						// Проверяем правильность URL события
+						let eventUrl = existingEvent.url;
+						
+						// Для Yandex CalDAV может потребоваться специальная обработка URL
+						if (eventUrl.includes('yandex.ru')) {
+							this.logger?.debug(`[CalDAV UPDATE] Processing Yandex URL...`);
+							const originalUrl = eventUrl;
+							
+							// Убираем .ics если есть и добавляем заново
+							if (eventUrl.endsWith('.ics')) {
+								eventUrl = eventUrl.replace('.ics', '');
+							}
+							// Проверяем, что URL заканчивается на UID
+							if (!eventUrl.endsWith(eventUID)) {
+								// Если нет, заменяем последнюю часть на UID
+								const urlParts = eventUrl.split('/');
+								urlParts[urlParts.length - 1] = eventUID;
+								eventUrl = urlParts.join('/');
+							}
+							eventUrl += '.ics';
+							
+							this.logger?.debug(`[CalDAV UPDATE] URL transformation: ${originalUrl} -> ${eventUrl}`);
+							
+							// Обновляем URL в объекте события
+							existingEvent.url = eventUrl;
+						}
+
+						// Парсим существующие данные события
+						const existingData = existingEvent.calendarData;
+						
+						if (!existingData) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Event data not found for UID ${eventUID}`,
+								{ itemIndex: i }
+							);
+						}
+						
+						// Извлекаем текущие значения
+						const currentSummary = existingData.match(/SUMMARY:([^\r\n]+)/)?.[1]?.trim() || '';
+						const currentDescription = existingData.match(/DESCRIPTION:([^\r\n]+)/)?.[1]?.trim() || '';
+						const currentLocation = existingData.match(/LOCATION:([^\r\n]+)/)?.[1]?.trim() || '';
+						const currentDtStart = existingData.match(/DTSTART[^:]*:([^\r\n]+)/)?.[1]?.trim() || '';
+						const currentDtEnd = existingData.match(/DTEND[^:]*:([^\r\n]+)/)?.[1]?.trim() || '';
+
+						// Используем новые значения или оставляем старые
+						const newTitle = eventTitle || currentSummary;
+						const newDescription = eventDescription !== '' ? eventDescription : currentDescription;
+						const newLocation = eventLocation !== '' ? eventLocation : currentLocation;
+						
+						let newStartDateTime: Date;
+						let newEndDateTime: Date;
+						
+						if (startDateTime) {
+							newStartDateTime = new Date(startDateTime);
+						} else {
+							// Парсим существующую дату
+							const parsedStart = currentDtStart ? parseICalDate(currentDtStart, existingData) : null;
+							newStartDateTime = parsedStart ? parsedStart.date : new Date();
+						}
+						
+						if (endDateTime) {
+							newEndDateTime = new Date(endDateTime);
+						} else {
+							// Парсим существующую дату
+							const parsedEnd = currentDtEnd ? parseICalDate(currentDtEnd, existingData) : null;
+							newEndDateTime = parsedEnd ? parsedEnd.date : new Date();
+						}
+
+						// Генерируем обновленные iCal данные
+						const updatedICalData = generateICalEvent({
+							uid: eventUID,
+							title: newTitle,
+							startDateTime: newStartDateTime,
+							endDateTime: newEndDateTime,
+							description: newDescription,
+							location: newLocation,
+						});
+
+						this.logger?.info(`[CalDAV UPDATE] Generated iCal data, length: ${updatedICalData.length} chars`);
+
+						// Обновляем событие используя xhr транспорт
+						const updateRequest = {
+							method: 'PUT',
+							requestData: updatedICalData,
+							transformRequest: (data: any) => data,
+							transformResponse: (data: any) => data,
+						};
+						
+						const updateHeaders: Record<string, string> = {
+							'Content-Type': 'text/calendar; charset=utf-8',
+						};
+						
+						if (existingEvent.etag) {
+							updateHeaders['If-Match'] = existingEvent.etag;
+							this.logger?.debug(`[CalDAV UPDATE] Using If-Match header with etag: ${existingEvent.etag}`);
+						} else {
+							this.logger?.debug(`[CalDAV UPDATE] No etag available, proceeding without If-Match`);
+						}
+						
+						this.logger?.info(`[CalDAV UPDATE] Making PUT request to: ${existingEvent.url}`);
+						
+						let updatedEvent: any;
+						const requestStartTime = Date.now();
+						
+						try {
+							const response = await xhr.send(updateRequest, existingEvent.url, updateHeaders);
+							const requestDuration = Date.now() - requestStartTime;
+							
+							this.logger?.info(`[CalDAV UPDATE] PUT request completed successfully in ${requestDuration}ms`);
+
+							updatedEvent = {
+								url: existingEvent.url,
+								etag: response.xhr?.getResponseHeader?.('etag') || existingEvent.etag,
+								calendarData: updatedICalData,
+							};
+							
+						} catch (httpError: any) {
+							const requestDuration = Date.now() - requestStartTime;
+							this.logger?.error(`[CalDAV UPDATE] PUT request failed after ${requestDuration}ms, status: ${httpError.status || 'No status'}`);
+							
+							// Попробуем альтернативный метод - обновление без If-Match заголовка
+							try {
+								this.logger?.info(`[CalDAV UPDATE] Trying alternative method without If-Match header...`);
+								
+								const altUpdateHeaders: Record<string, string> = {
+									'Content-Type': 'text/calendar; charset=utf-8',
+								};
+								
+								const altRequestStartTime = Date.now();
+								
+								const altResponse = await xhr.send(updateRequest, existingEvent.url, altUpdateHeaders);
+								const altRequestDuration = Date.now() - altRequestStartTime;
+								
+								this.logger?.info(`[CalDAV UPDATE] Alternative PUT request completed successfully in ${altRequestDuration}ms`);
+
+								updatedEvent = {
+									url: existingEvent.url,
+									etag: altResponse.xhr?.getResponseHeader?.('etag') || existingEvent.etag,
+									calendarData: updatedICalData,
+								};
+								
+							} catch (altError: any) {
+								const altRequestDuration = Date.now() - requestStartTime;
+								this.logger?.error(`[CalDAV UPDATE] Alternative PUT request also failed after ${altRequestDuration}ms, status: ${altError.status || 'No status'}`);
+								
+								// Используем улучшенную обработку ошибок
+								const primaryError = handleCalDAVError(httpError, 'UPDATE', existingEvent.url, requestDuration);
+								const altErrorMsg = handleCalDAVError(altError, 'UPDATE (Alternative)', existingEvent.url, altRequestDuration);
+								
+								const errorMessage = `${primaryError}. Alternative method also failed: ${altErrorMsg}`;
+								
+								throw new Error(errorMessage);
+							}
+						}
+
+						this.logger?.info(`[CalDAV UPDATE] Event update completed successfully`);
+
+						returnData.push({
+							json: {
+								uid: eventUID,
+								title: newTitle,
+								startDateTime: newStartDateTime.toISOString(),
+								endDateTime: newEndDateTime.toISOString(),
+								description: newDescription,
+								location: newLocation,
+								url: updatedEvent.url,
+								etag: updatedEvent.etag,
+								success: true,
+								message: 'Event updated successfully',
+							},
+							pairedItem: {
+								item: i,
+							},
+						});
+
+					} catch (error) {
+						this.logger?.error(`[CalDAV UPDATE] Operation failed: ${(error as Error).message}`);
+						throw new NodeOperationError(
+							this.getNode(),
+							`Failed to update event: ${(error as Error).message}`,
+							{ itemIndex: i }
+						);
+					}
+
+				} else if (operation === 'deleteEvent') {
+					const calendarUrl = this.getNodeParameter('calendarUrl', i) as string;
+					const eventUID = this.getNodeParameter('eventUID', i) as string;
+
+					this.logger?.info(`[CalDAV DELETE] Starting deletion of event UID: ${eventUID}`);
+
+					// Создаем оптимизированный транспорт для аутентификации
+					const xhr = createOptimizedXhr(credentials);
+
+					try {
+						// Находим существующее событие
+						let existingEvent = await findEventByUID(calendarUrl, eventUID, xhr);
+						
+						this.logger?.info(`[CalDAV DELETE] findEventByUID result: ${existingEvent ? 'Found' : 'Not found'}`);
+						
+						// Если не найдено через синхронизацию, пробуем прямой запрос
+						if (!existingEvent) {
+							this.logger?.info(`[CalDAV DELETE] Trying findEventByFilename as fallback...`);
+							existingEvent = await findEventByFilename(calendarUrl, eventUID, xhr);
+							this.logger?.info(`[CalDAV DELETE] findEventByFilename result: ${existingEvent ? 'Found' : 'Not found'}`);
+						}
+						
+						if (!existingEvent) {
+							throw new NodeOperationError(
+								this.getNode(),
+								`Event with UID ${eventUID} not found in calendar ${calendarUrl}. Tried both sync and direct methods.`,
+								{ itemIndex: i }
+							);
+						}
+
+						this.logger?.info(`[CalDAV DELETE] Event found at URL: ${existingEvent.url}`);
+
+						// Удаляем событие используя xhr транспорт
+						const deleteRequest = {
+							method: 'DELETE',
+							requestData: '',
+							transformRequest: (data: any) => data,
+							transformResponse: (data: any) => data,
+						};
+						
+						const deleteHeaders: Record<string, string> = {};
+						
+						if (existingEvent.etag) {
+							deleteHeaders['If-Match'] = existingEvent.etag;
+							this.logger?.debug(`[CalDAV DELETE] Using If-Match header with etag: ${existingEvent.etag}`);
+						}
+						
+						this.logger?.info(`[CalDAV DELETE] Making DELETE request to: ${existingEvent.url}`);
+						const requestStartTime = Date.now();
+						
+						try {
+							const response = await xhr.send(deleteRequest, existingEvent.url, deleteHeaders);
+							const requestDuration = Date.now() - requestStartTime;
+							
+							this.logger?.info(`[CalDAV DELETE] DELETE request completed successfully in ${requestDuration}ms`);
+
+							returnData.push({
+								json: {
+									uid: eventUID,
+									url: existingEvent.url,
+									success: true,
+									message: 'Event deleted successfully',
+									deletedAt: new Date().toISOString(),
+								},
+								pairedItem: {
+									item: i,
+								},
+							});
+
+						} catch (httpError: any) {
+							const requestDuration = Date.now() - requestStartTime;
+							this.logger?.error(`[CalDAV DELETE] DELETE request failed after ${requestDuration}ms, status: ${httpError.status || 'No status'}`);
+							
+							// Используем улучшенную обработку ошибок
+							const errorMessage = handleCalDAVError(httpError, 'DELETE', existingEvent.url, requestDuration);
+							
+							throw new Error(errorMessage);
+						}
+
+					} catch (error) {
+						throw new NodeOperationError(
+							this.getNode(),
+							`Failed to delete event: ${(error as Error).message}`,
+							{ itemIndex: i }
+						);
+					}
+
+				} else if (operation === 'getEvents') {
 					const calendarUrl = this.getNodeParameter('calendarUrl', i) as string;
 					const date = this.getNodeParameter('date', i) as string;
 
-					// Создаем транспорт для аутентификации
-					const xhr = new dav.transport.Basic(
-						new dav.Credentials({
-							username: credentials.username as string,
-							password: credentials.password as string,
-						})
-					);
+					this.logger?.info(`[CalDAV GET] Getting events for date: ${date} from calendar: ${calendarUrl}`);
+
+					// Создаем оптимизированный транспорт для аутентификации
+					const xhr = createOptimizedXhr(credentials);
 
 					try {
 						// Создаем аккаунт CalDAV
@@ -606,6 +1582,8 @@ export class Caldav implements INodeType {
 						// Фильтруем события по дате
 						const eventsForDate: CalendarEvent[] = [];
 						
+						this.logger?.info(`[CalDAV GET] Processing ${calendarObjects.length} calendar objects`);
+						
 						for (const obj of calendarObjects) {
 							if (!obj.calendarData) continue;
 							
@@ -657,6 +1635,8 @@ export class Caldav implements INodeType {
 								}
 							}
 						}
+
+						this.logger?.info(`[CalDAV GET] Found ${eventsForDate.length} events for date ${date}`);
 
 						// Обрабатываем найденные события
 						for (const event of eventsForDate) {

@@ -30,7 +30,7 @@ describe('CalDAV Node Structure Tests', function() {
             const packageJson = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
             
             // Проверяем основные поля
-            assert.strictEqual(packageJson.name, 'n8n-caldav-node', 'Package name should be correct');
+            assert.strictEqual(packageJson.name, 'n8n-nodes-caldav-calendar', 'Package name should be correct');
             assert.ok(packageJson.n8n, 'Should have n8n configuration');
             assert.ok(packageJson.n8n.nodes, 'Should have nodes configuration');
             assert.ok(packageJson.n8n.credentials, 'Should have credentials configuration');
