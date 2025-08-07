@@ -7,6 +7,7 @@ import {
 	NodeConnectionType,
 	ILoadOptionsFunctions,
 	INodePropertyOptions,
+	ICredentialDataDecryptedObject,
 } from 'n8n-workflow';
 
 import * as dav from 'dav';
@@ -354,11 +355,12 @@ export class Caldav implements INodeType {
 
 				} catch (error) {
 					// Возвращаем заглушку при ошибке для отладки
+					const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 					return [
 						{
 							name: 'Ошибка загрузки календарей',
 							value: '/calendars/error',
-							description: `Ошибка: ${(error as Error).message}`,
+							description: `Ошибка: ${errorMessage}`,
 						},
 					];
 				}
@@ -424,7 +426,7 @@ export class Caldav implements INodeType {
 		};
 
 		// Функция для поиска события по имени файла (альтернативный метод)
-		const findEventByFilename = async (calendarUrl: string, uid: string, xhr: any) => {
+		const findEventByFilename = async (calendarUrl: string, uid: string, xhr: dav.transport.Basic) => {
 			try {
 				// Создаем аккаунт CalDAV
 				const account = await dav.createAccount({
@@ -442,7 +444,7 @@ export class Caldav implements INodeType {
 				);
 
 				if (!calendar) {
-					throw new Error(`Calendar not found: ${calendarUrl}`);
+					return null;
 				}
 
 				// Формируем ожидаемый URL события
@@ -457,8 +459,8 @@ export class Caldav implements INodeType {
 					const directRequest = {
 						method: 'GET',
 						requestData: '',
-						transformRequest: (data: any) => data,
-						transformResponse: (data: any) => data,
+						transformRequest: (data: unknown) => data,
+						transformResponse: (data: unknown) => data,
 					};
 					
 					const response = await xhr.send(directRequest, expectedEventUrl, {});
@@ -470,7 +472,7 @@ export class Caldav implements INodeType {
 							calendarData: response.responseText,
 						};
 					}
-				} catch (directError: any) {
+				} catch (directError) {
 					// Если прямой запрос не работает, возвращаем null
 					return null;
 				}
@@ -482,7 +484,7 @@ export class Caldav implements INodeType {
 		};
 
 		// Функция для поиска события по UID в календаре
-		const findEventByUID = async (calendarUrl: string, uid: string, xhr: any) => {
+		const findEventByUID = async (calendarUrl: string, uid: string, xhr: dav.transport.Basic) => {
 			try {
 				// Создаем аккаунт CalDAV
 				const account = await dav.createAccount({
@@ -500,7 +502,7 @@ export class Caldav implements INodeType {
 				);
 
 				if (!calendar) {
-					throw new Error(`Calendar not found: ${calendarUrl}`);
+					return null;
 				}
 
 				// Синхронизируем календарь и получаем события
@@ -558,7 +560,7 @@ export class Caldav implements INodeType {
 
 				return null;
 			} catch (error) {
-				throw error;
+				return null;
 			}
 		};
 
@@ -817,7 +819,7 @@ export class Caldav implements INodeType {
 		};
 
 		// Функция для создания оптимизированного xhr транспорта
-		const createOptimizedXhr = (credentials: any) => {
+		const createOptimizedXhr = (credentials: ICredentialDataDecryptedObject) => {
 			// Предупреждаем о проблемах с Yandex CalDAV
 			const serverUrl = credentials.serverUrl as string;
 			if (serverUrl.includes('yandex.ru')) {
@@ -834,7 +836,7 @@ export class Caldav implements INodeType {
 
 			// Добавляем кастомный обработчик для оптимизации заголовков
 			const originalSend = xhr.send.bind(xhr);
-			xhr.send = async function(request: any, url: string, headers: any = {}) {
+			xhr.send = async function(request: unknown, url: string, headers: Record<string, string> = {}) {
 				// Добавляем стандартные заголовки для лучшей совместимости с Yandex
 				const optimizedHeaders = {
 					'User-Agent': 'n8n-caldav-node/1.0',
@@ -851,7 +853,7 @@ export class Caldav implements INodeType {
 		};
 
 		// Функция для улучшенной обработки ошибок CalDAV
-		const handleCalDAVError = (error: any, operation: string, url: string, duration: number): string => {
+		const handleCalDAVError = (error: Error & { status?: number }, operation: string, url: string, duration: number): string => {
 			let errorMessage = `Failed to ${operation.toLowerCase()} event at ${url}`;
 			
 			if (error.status) {
@@ -955,10 +957,11 @@ export class Caldav implements INodeType {
 								xhr: xhr,
 								syncMethod: 'basic',
 							});
-						} catch (syncError: any) {
+						} catch (syncError) {
+							const errorMessage = syncError instanceof Error ? syncError.message : 'Unknown sync error';
 							throw new NodeOperationError(
 								this.getNode(),
-								`Calendar not accessible: ${syncError.message}. Please check calendar URL and credentials.`,
+								`Calendar not accessible: ${errorMessage}. Please check calendar URL and credentials.`,
 								{ itemIndex: i }
 							);
 						}
@@ -976,11 +979,11 @@ export class Caldav implements INodeType {
 						const request = {
 							method: 'PUT',
 							requestData: icalData,
-							transformRequest: (data: any) => data,
-							transformResponse: (data: any) => data,
+							transformRequest: (data: unknown) => data,
+							transformResponse: (data: unknown) => data,
 						};
 						
-						let createdEvent: any;
+						let createdEvent: { url: string; etag: string; calendarData: string };
 						const requestStartTime = Date.now();
 						
 						try {
@@ -997,9 +1000,10 @@ export class Caldav implements INodeType {
 								etag: response.xhr?.getResponseHeader?.('etag') || '',
 								calendarData: icalData,
 							};
-						} catch (httpError: any) {
+						} catch (httpError) {
 							const requestDuration = Date.now() - requestStartTime;
-							this.logger?.error(`[CalDAV CREATE] PUT request failed after ${requestDuration}ms, status: ${httpError.status || 'No status'}`);
+							const status = (httpError as { status?: number }).status || 'No status';
+							this.logger?.error(`[CalDAV CREATE] PUT request failed after ${requestDuration}ms, status: ${status}`);
 							
 							// Альтернативный подход - попробуем создать временный файл и синхронизировать
 							try {
@@ -1018,7 +1022,7 @@ export class Caldav implements INodeType {
 								calendar.objects.push(tempCalendarObject);
 								
 								// Пытаемся синхронизировать календарь с новым объектом
-								const syncedCalendar = await dav.syncCalendar(calendar, {
+								await dav.syncCalendar(calendar, {
 									xhr: xhr,
 									syncMethod: 'basic',
 								});
@@ -1029,30 +1033,37 @@ export class Caldav implements INodeType {
 									calendarData: icalData,
 								};
 								
-							} catch (syncError: any) {
+							} catch (syncError) {
 								// Если и альтернативный метод не работает, выдаем подробную ошибку
+								const httpErr = httpError as { status?: number; message?: string };
+								const syncErr = syncError as { message?: string };
 								let errorMessage = `Failed to create event at ${eventUrl}`;
 								
-								if (httpError.status) {
-									errorMessage += ` - HTTP ${httpError.status}`;
-									if (httpError.status === 504) {
+								if (httpErr.status) {
+									errorMessage += ` - HTTP ${httpErr.status}`;
+									if (httpErr.status === 504) {
 										errorMessage += ' (Gateway Timeout - server took too long to respond)';
-									} else if (httpError.status === 401) {
+									} else if (httpErr.status === 401) {
 										errorMessage += ' (Unauthorized - check credentials)';
-									} else if (httpError.status === 403) {
+									} else if (httpErr.status === 403) {
 										errorMessage += ' (Forbidden - insufficient permissions)';
-									} else if (httpError.status === 404) {
+									} else if (httpErr.status === 404) {
 										errorMessage += ' (Not Found - calendar may not exist)';
 									}
 								}
 								
-								if (httpError.message) {
-									errorMessage += `. Original error: ${httpError.message}`;
+								if (httpErr.message) {
+									errorMessage += `. Original error: ${httpErr.message}`;
 								}
 								
-								errorMessage += `. Alternative sync method also failed: ${syncError.message}`;
+								const syncMessage = syncErr.message || 'Unknown sync error';
+								errorMessage += `. Alternative sync method also failed: ${syncMessage}`;
 								
-								throw new Error(errorMessage);
+								throw new NodeOperationError(
+									this.getNode(),
+									errorMessage,
+									{ itemIndex: i }
+								);
 							}
 						}
 
@@ -1118,8 +1129,8 @@ export class Caldav implements INodeType {
 						const deleteRequest = {
 							method: 'DELETE',
 							requestData: '',
-							transformRequest: (data: any) => data,
-							transformResponse: (data: any) => data,
+							transformRequest: (data: unknown) => data,
+							transformResponse: (data: unknown) => data,
 						};
 						
 						const deleteHeaders: Record<string, string> = {};
@@ -1133,7 +1144,7 @@ export class Caldav implements INodeType {
 						const requestStartTime = Date.now();
 						
 						try {
-							const response = await xhr.send(deleteRequest, existingEvent.url, deleteHeaders);
+							await xhr.send(deleteRequest, existingEvent.url, deleteHeaders);
 							const requestDuration = Date.now() - requestStartTime;
 							
 							this.logger?.info(`[CalDAV DELETE] DELETE request completed successfully in ${requestDuration}ms`);
@@ -1151,14 +1162,19 @@ export class Caldav implements INodeType {
 								},
 							});
 
-						} catch (httpError: any) {
+						} catch (httpError) {
 							const requestDuration = Date.now() - requestStartTime;
-							this.logger?.error(`[CalDAV DELETE] DELETE request failed after ${requestDuration}ms, status: ${httpError.status || 'No status'}`);
+							const status = (httpError as { status?: number }).status || 'No status';
+							this.logger?.error(`[CalDAV DELETE] DELETE request failed after ${requestDuration}ms, status: ${status}`);
 							
 							// Используем улучшенную обработку ошибок
-							const errorMessage = handleCalDAVError(httpError, 'DELETE', existingEvent.url, requestDuration);
+							const errorMessage = handleCalDAVError(httpError as Error & { status?: number }, 'DELETE', existingEvent.url, requestDuration);
 							
-							throw new Error(errorMessage);
+							throw new NodeOperationError(
+								this.getNode(),
+								errorMessage,
+								{ itemIndex: i }
+							);
 						}
 
 					} catch (error) {
