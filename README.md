@@ -1,49 +1,66 @@
-# n8n-caldav-node
+# n8n-nodes-caldav-calendar
 
-Простейший n8n community node для работы с календарями по протоколу CalDAV.
+A simple n8n community node for working with CalDAV calendars.
 
-## 🚀 Возможности
+[Install](#installation) | [Compatibility](#compatibility) | [Usage](#usage) | [Configuration](#configuration) | [Operations](#operations) | [Development](#development)
 
-- **Динамическая загрузка календарей** - автоматическое получение списка доступных календарей с сервера
-- **Умные названия календарей** - отображение понятных имен вместо технических путей  
-- **Типизация календарей** - автоматическое определение типа (События/Задачи/Календарь)
-- **Получение событий календаря** за указанную дату
-- **Создание новых событий** в календаре
-- **Редактирование существующих событий** по UID
-- **Удаление событий** по UID
-- **Подключение к любому CalDAV серверу** (Google Calendar, Apple iCloud, NextCloud, и др.)
-- **Базовая аутентификация** (username/password)
-- **Правильная обработка ошибок** - информативные сообщения при отсутствии событий
-- **ISO форматы дат** с поддержкой таймзон
-- **🤖 Поддержка AI Tool** - возможность использования в AI Agent ноде как инструмент
+## 🚀 Features
 
-## Установка
+- **Dynamic calendar loading** - automatically fetch available calendars from server
+- **Smart calendar names** - display user-friendly names instead of technical paths  
+- **Calendar type detection** - automatically identify calendar types (Events/Tasks/Calendar)
+- **Get calendar events** for a specific date
+- **Create new events** in calendar
+- **Update existing events** by UID
+- **Delete events** by UID
+- **Connect to any CalDAV server** (Google Calendar, Apple iCloud, NextCloud, etc.)
+- **Basic authentication** (username/password)
+- **Proper error handling** - informative messages when no events found
+- **ISO date formats** with timezone support
+- **🤖 AI Tool support** - can be used as a tool in AI Agent node
+
+## Installation
 
 ```bash
-npm install n8n-caldav-node
+npm install n8n-nodes-caldav-calendar
 ```
 
-Или через UI n8n:
-1. Перейдите в Settings > Community Nodes
-2. Введите `n8n-caldav-node`
-3. Нажмите Install
+Or via n8n UI:
+1. Go to Settings > Community Nodes
+2. Enter `n8n-nodes-caldav-calendar`
+3. Click Install
 
-## Настройка
+## Compatibility
 
-### Создание учетных данных CalDAV API
+- **n8n version**: 0.190.0 or later
+- **Node.js**: 18.10.0 or later
+- **CalDAV servers**: RFC 4791 compliant servers
 
-1. В n8n перейдите в Credentials
-2. Создайте новые учетные данные типа "CalDAV API"
-3. Заполните поля:
-   - **Server URL**: URL вашего CalDAV сервера (например, `https://cal.example.com/caldav/`)
-   - **Username**: ваше имя пользователя
-   - **Password**: ваш пароль
+### Tested CalDAV Servers
 
-### Популярные CalDAV серверы
+| Server | Status | Notes |
+|--------|--------|-------|
+| Google Calendar | ✅ Working | Use app passwords |
+| Apple iCloud | ✅ Working | Standard authentication |
+| NextCloud | ✅ Working | Standard authentication |
+| Yandex Calendar | ⚠️ Limited | Artificial 60s delays for WebDAV |
+
+## Configuration
+
+### Creating CalDAV API Credentials
+
+1. In n8n, go to Credentials
+2. Create new credentials of type "CalDAV API"
+3. Fill in the fields:
+   - **Server URL**: Your CalDAV server URL (e.g., `https://cal.example.com/caldav/`)
+   - **Username**: Your username
+   - **Password**: Your password
+
+### Popular CalDAV Server URLs
 
 #### Google Calendar
 - Server URL: `https://apidata.googleusercontent.com/caldav/v2/`
-- Используйте app password вместо основного пароля
+- Use app password instead of main password
 
 #### Apple iCloud
 - Server URL: `https://caldav.icloud.com/`
@@ -51,97 +68,97 @@ npm install n8n-caldav-node
 #### NextCloud
 - Server URL: `https://your-nextcloud.com/remote.php/dav/calendars/USERNAME/`
 
-#### ⚠️ Yandex.Disk CalDAV (ОГРАНИЧЕНИЯ)
+#### ⚠️ Yandex Calendar CalDAV (LIMITATIONS)
 - Server URL: `https://caldav.yandex.ru/`
-- **ВНИМАНИЕ**: Yandex искусственно замедляет WebDAV-операции (60 секунд на МБ с 2021 года)
-- **Симптомы**: частые таймауты 504, особенно при создании/обновлении событий
-- **Рекомендации**: 
-  - Используйте только для чтения событий
-  - Рассмотрите переход на Google Calendar или Nextcloud
-  - При ошибках подождите несколько минут и повторите
+- **WARNING**: Yandex artificially slows down WebDAV operations (60 seconds per MB since 2021)
+- **Symptoms**: frequent 504 timeouts, especially when creating/updating events
+- **Recommendations**: 
+  - Use only for reading events
+  - Consider switching to Google Calendar or Nextcloud
+  - Wait several minutes between retries on errors
 
-## 📋 Использование
+## 📋 Usage
 
-### Обычное использование в workflow
+### Standard Workflow Usage
 
-1. Добавьте CalDAV node в ваш workflow
-2. Выберите созданные учетные данные
-3. **Выберите календарь из выпадающего списка** 📅 (автоматически загружается с сервера)
-4. Выберите дату для получения событий
-5. Выполните workflow
+1. Add CalDAV node to your workflow
+2. Select the created credentials
+3. **Choose calendar from dropdown list** 📅 (automatically loaded from server)
+4. Select date to get events
+5. Execute workflow
 
-### 🤖 Использование как AI Tool
+### 🤖 Using as AI Tool
 
-CalDAV нода поддерживает использование в качестве AI Tool для AI Agent:
+The CalDAV node supports usage as an AI Tool for AI Agent:
 
-1. Добавьте AI Agent node в ваш workflow
-2. В разделе Tools выберите CalDAV node
-3. AI агент сможет самостоятельно запрашивать события календаря, когда пользователь спрашивает о планах, встречах или событиях
+1. Add AI Agent node to your workflow
+2. In Tools section, select CalDAV node
+3. AI agent can independently query calendar events when users ask about plans, meetings, or events
 
-**Примеры вопросов к AI агенту:**
-- "Какие у меня события на завтра?"
-- "Что запланировано на эту неделю?"  
-- "Есть ли встречи на понедельник?"
-- "Создай встречу с командой на завтра в 15:00"
-- "Перенеси встречу с ID abc123 на вторник"
-- "Удали событие с UID xyz789"
+**Example AI agent questions:**
+- "What events do I have tomorrow?"
+- "What's scheduled for this week?"  
+- "Are there any meetings on Monday?"
+- "Create a team meeting tomorrow at 3 PM"
+- "Move the meeting with ID abc123 to Tuesday"
+- "Delete the event with UID xyz789"
 
-## 📖 Операции
+## 📖 Operations
 
 ### Get Events
-Получает события календаря за указанную дату.
+Retrieves calendar events for a specific date.
 
-**Параметры:**
-- `Calendar Name or ID` - выберите календарь из списка
-- `Date` - дата для получения событий (в формате ISO 8601)
+**Parameters:**
+- `Calendar Name or ID` - select calendar from list
+- `Date` - date to get events for (ISO 8601 format)
 
-**Возвращает:** массив событий с полями `uid`, `summary`, `description`, `location`, `dtStart`, `dtEnd`, `url`, `etag`
+**Returns:** Array of events with fields `uid`, `summary`, `description`, `location`, `dtStart`, `dtEnd`, `url`, `etag`
 
 ### Create Event
-Создает новое событие в календаре.
+Creates a new event in the calendar.
 
-**Параметры:**
-- `Calendar Name or ID` - выберите календарь из списка  
-- `Event Title` - заголовок события (обязательно)
-- `Start Date and Time` - дата и время начала (обязательно)
-- `End Date and Time` - дата и время окончания (обязательно)
-- `Description` - описание события (опционально)
-- `Location` - место проведения (опционально)
+**Parameters:**
+- `Calendar Name or ID` - select calendar from list  
+- `Event Title` - event title (required)
+- `Start Date and Time` - start date and time (required)
+- `End Date and Time` - end date and time (required)
+- `Description` - event description (optional)
+- `Location` - event location (optional)
 
-**Возвращает:** объект созданного события с `uid`, `title`, `startDateTime`, `endDateTime`, `description`, `location`, `url`, `etag`, `success`, `message`
+**Returns:** Created event object with `uid`, `title`, `startDateTime`, `endDateTime`, `description`, `location`, `url`, `etag`, `success`, `message`
 
 ### Update Event  
-Обновляет существующее событие по UID.
+Updates an existing event by UID.
 
-**Параметры:**
-- `Calendar Name or ID` - выберите календарь из списка
-- `Event UID` - уникальный идентификатор события (обязательно)
-- `Event Title` - новый заголовок (опционально)
-- `Start Date and Time` - новая дата начала (опционально)  
-- `End Date and Time` - новая дата окончания (опционально)
-- `Description` - новое описание (опционально)
-- `Location` - новое место (опционально)
+**Parameters:**
+- `Calendar Name or ID` - select calendar from list
+- `Event UID` - unique event identifier (required)
+- `Event Title` - new title (optional)
+- `Start Date and Time` - new start date (optional)  
+- `End Date and Time` - new end date (optional)
+- `Description` - new description (optional)
+- `Location` - new location (optional)
 
-**Возвращает:** объект обновленного события
+**Returns:** Updated event object
 
-**Примечание:** указывайте только поля для изменения, остальные останутся без изменений.
+**Note:** Only specify fields to be changed, others will remain unchanged.
 
 ### Delete Event
-Удаляет существующее событие по UID.
+Deletes an existing event by UID.
 
-**Параметры:**
-- `Calendar Name or ID` - выберите календарь из списка
-- `Event UID` - уникальный идентификатор события для удаления (обязательно)
+**Parameters:**
+- `Calendar Name or ID` - select calendar from list
+- `Event UID` - unique event identifier to delete (required)
 
-**Возвращает:** объект с подтверждением удаления, включающий `uid`, `url`, `success`, `message`, `deletedAt`
+**Returns:** Object with deletion confirmation including `uid`, `url`, `success`, `message`, `deletedAt`
 
-### ✨ Новые возможности
+### ✨ New Features
 
-- **Автоматический выбор календаря**: больше не нужно вручную вводить пути к календарям
-- **Понятные названия**: вместо `/calendars/user/events-123/` отображается `Мой календарь (События)`
-- **Информативные ошибки**: при отсутствии событий node сообщает точную причину
+- **Automatic calendar selection**: no more manual calendar path entry
+- **User-friendly names**: instead of `/calendars/user/events-123/` shows `My Calendar (Events)`
+- **Informative errors**: when no events found, node reports exact reason
 
-## Пример вывода
+## Example Output
 
 ```json
 {
@@ -158,51 +175,74 @@ CalDAV нода поддерживает использование в каче�
 }
 ```
 
-## 🧪 Тестирование
+## 🧪 Testing
 
 ```bash
-# Запуск тестов
+# Run tests
 npm test
 
-# Установка зависимостей для тестов
+# Install test dependencies
 npm install
 ```
 
-Тесты проверяют:
-- Структуру скомпилированного node
-- Конфигурацию пакета
-- Обработку ошибок
-- Парсинг дат и событий
+Tests verify:
+- Compiled node structure
+- Package configuration
+- Error handling
+- Date and event parsing
 
-## Разработка
+## Development
 
 ```bash
-# Установка зависимостей
+# Install dependencies
 npm install
 
-# Сборка
+# Build
 npm run build
 
-# Разработка с hot reload
+# Development with hot reload
 npm run dev
 
-# Запуск тестов
+# Run tests
 npm test
 ```
 
-## 🔧 Обновления
+## 🔧 Release History
 
-### v1.1.0
-- ✅ **🤖 Поддержка AI Tool** - интеграция с AI Agent нодой
-- ✅ **Улучшенная совместимость** с современными версиями n8n
+### v2.0.1
+- ✅ **🤖 AI Tool support** - integration with AI Agent node
+- ✅ **Improved compatibility** with modern n8n versions
 
 ### v1.0.3
-- ✅ **Динамическая загрузка календарей** через `loadOptionsMethod`
-- ✅ **Улучшенные названия календарей** с автоопределением типов
-- ✅ **Правильная обработка ошибок** с `NodeOperationError`
-- ✅ **Автоматические тесты** с mocha
-- ✅ **TypeScript поддержка** и компиляция
+- ✅ **Dynamic calendar loading** via `loadOptionsMethod`
+- ✅ **Improved calendar names** with automatic type detection
+- ✅ **Proper error handling** with `NodeOperationError`
+- ✅ **Automated tests** with mocha
+- ✅ **TypeScript support** and compilation
 
-## Лицензия
+## API Reference
 
-MIT 
+This node implements the CalDAV protocol as specified in [RFC 4791](https://tools.ietf.org/html/rfc4791).
+
+### Supported CalDAV Operations
+- `PROPFIND` - for calendar discovery
+- `REPORT` - for event querying
+- `PUT` - for event creation/updates
+- `DELETE` - for event deletion
+
+### Authentication
+Currently supports HTTP Basic Authentication. OAuth support may be added in future versions.
+
+## License
+
+MIT
+
+## Contributing
+
+Contributions are welcome! Please read our contributing guidelines and submit pull requests to our GitHub repository.
+
+## Support
+
+- [GitHub Issues](https://github.com/mediabc/n8n-nodes-caldav-calendar/issues)
+- [CalDAV RFC 4791](https://tools.ietf.org/html/rfc4791)
+- [n8n Community](https://community.n8n.io/) 

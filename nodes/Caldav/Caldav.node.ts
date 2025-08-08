@@ -34,7 +34,7 @@ interface CalendarObject {
 }
 
 /**
- * Календарь с URL и объектами
+ * Calendar with URL and objects
  */
 interface Calendar {
 	url: string;
@@ -42,7 +42,7 @@ interface Calendar {
 }
 
 /**
- * Событие календаря с поддержкой различных форматов дат
+ * Calendar event with support for various date formats
  */
 interface CalendarEvent {
 	summary?: string;
@@ -67,7 +67,7 @@ interface ParsedICalDate {
 }
 
 /**
- * Образец события для отладки и анализа данных календаря
+ * Sample event for debugging and calendar data analysis
  */
 interface SampleEvent {
 	error?: string;
@@ -157,7 +157,7 @@ export class Caldav implements INodeType {
 					},
 				},
 			},
-			// Параметры для создания события
+			// Parameters for creating event
 			{
 				displayName: 'Calendar Name or ID',
 				name: 'calendarUrl',
@@ -237,7 +237,7 @@ export class Caldav implements INodeType {
 				},
 			},
 
-			// Параметры для удаления события
+			// Parameters for deleting event
 			{
 				displayName: 'Calendar Name or ID',
 				name: 'calendarUrl',
@@ -330,12 +330,12 @@ export class Caldav implements INodeType {
 							}
 						}
 
-						// Проверяем тип календаря по URL и свойствам
-						let calendarType = 'Календарь';
+						// Check calendar type by URL and properties
+						let calendarType = 'Calendar';
 						if (calendarPath.includes('events') || (calendar as CalendarObject).componentSet?.includes('VEVENT')) {
-							calendarType = 'События';
+							calendarType = 'Events';
 						} else if (calendarPath.includes('todos') || calendarPath.includes('tasks') || (calendar as CalendarObject).componentSet?.includes('VTODO')) {
-							calendarType = 'Задачи';
+							calendarType = 'Tasks';
 						}
 
 						// Формируем финальное название
@@ -354,13 +354,13 @@ export class Caldav implements INodeType {
 					return calendarOptions;
 
 				} catch (error) {
-					// Возвращаем заглушку при ошибке для отладки
+					// Return error stub for debugging
 					const errorMessage = error instanceof Error ? error.message : 'Unknown error';
 					return [
 						{
-							name: 'Ошибка загрузки календарей',
+							name: 'Calendar loading error',
 							value: '/calendars/error',
-							description: `Ошибка: ${errorMessage}`,
+							description: `Error: ${errorMessage}`,
 						},
 					];
 				}
@@ -375,12 +375,12 @@ export class Caldav implements INodeType {
 
 		const credentials = await this.getCredentials('caldavApi');
 
-		// Функция для генерации уникального UID события
+		// Function for generating unique event UID
 		const generateEventUID = (): string => {
 			return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}@n8n.io`;
 		};
 
-		// Функция для форматирования даты в iCal формат
+		// Function for formatting date to iCal format
 		const formatDateForICal = (date: Date, isAllDay = false): string => {
 			if (isAllDay) {
 				return date.toISOString().split('T')[0].replace(/-/g, '');
@@ -388,7 +388,7 @@ export class Caldav implements INodeType {
 			return date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 		};
 
-		// Функция для генерации iCal события
+		// Function for generating iCal event
 		const generateICalEvent = (eventData: {
 			uid?: string;
 			title: string;
@@ -1212,35 +1212,35 @@ export class Caldav implements INodeType {
 						);
 
 						if (!calendar) {
-							// Подготовим удобный список календарей для пользователя
-							const calendarList = account.calendars.map((cal: Calendar) => {
-								const serverUrl = credentials.serverUrl as string;
-								let calendarPath = cal.url;
-								
-								// Убираем serverUrl для краткости
-								if (calendarPath.startsWith(serverUrl)) {
-									calendarPath = calendarPath.substring(serverUrl.length);
-								}
-								
-								// Определяем тип календаря
-								let type = 'календарь';
-								if (calendarPath.includes('events')) {
-									type = 'события';
-								} else if (calendarPath.includes('todos') || calendarPath.includes('tasks')) {
-									type = 'задачи';
-								}
-								
-								return `  📅 ${calendarPath} (${type})`;
-							}).join('\n');
+													// Prepare convenient calendar list for user
+						const calendarList = account.calendars.map((cal: Calendar) => {
+							const serverUrl = credentials.serverUrl as string;
+							let calendarPath = cal.url;
+							
+							// Remove serverUrl for brevity
+							if (calendarPath.startsWith(serverUrl)) {
+								calendarPath = calendarPath.substring(serverUrl.length);
+							}
+							
+							// Determine calendar type
+							let type = 'calendar';
+							if (calendarPath.includes('events')) {
+								type = 'events';
+							} else if (calendarPath.includes('todos') || calendarPath.includes('tasks')) {
+								type = 'tasks';
+							}
+							
+							return `  📅 ${calendarPath} (${type})`;
+						}).join('\n');
 
-							throw new NodeOperationError(
-								this.getNode(),
-								`❌ Календарь не найден: ${calendarUrl}\n\n📋 Доступные календари:\n${calendarList}\n\n💡 Скопируйте нужный путь из списка выше в поле "Calendar URL"`,
-								{ level: 'warning' }
-							);
+						throw new NodeOperationError(
+							this.getNode(),
+							`❌ Calendar not found: ${calendarUrl}\n\n📋 Available calendars:\n${calendarList}\n\n💡 Copy the needed path from the list above to "Calendar URL" field`,
+							{ level: 'warning' }
+						);
 						}
 
-						// Формируем диапазон дат для запроса (день с 00:00 до 23:59)
+						// Form date range for request (day from 00:00 to 23:59)
 						const targetDate = new Date(date);
 						const startDate = new Date(targetDate);
 						startDate.setHours(0, 0, 0, 0);
@@ -1248,17 +1248,17 @@ export class Caldav implements INodeType {
 						const endDate = new Date(targetDate);
 						endDate.setHours(23, 59, 59, 999);
 
-						// Синхронизируем календарь и получаем события
+						// Synchronize calendar and get events
 						const syncedCalendar = await dav.syncCalendar(calendar, {
 							xhr: xhr,
 							syncMethod: 'basic',
 						});
 						
-						// Если объектов нет после синхронизации, пробуем создать account с загрузкой объектов
+						// If no objects after sync, try to create account with loading objects
 						let calendarObjects = syncedCalendar.objects || [];
 						
 						if (calendarObjects.length === 0) {
-							// Создаем новый аккаунт с загрузкой объектов
+							// Create new account with loading objects
 							const accountWithObjects = await dav.createAccount({
 								server: credentials.serverUrl as string,
 								xhr: xhr,
@@ -1267,7 +1267,7 @@ export class Caldav implements INodeType {
 								loadObjects: true,
 							});
 							
-							// Находим тот же календарь в новом аккаунте
+							// Find the same calendar in new account
 							const calendarWithObjects = accountWithObjects.calendars.find((cal: Calendar) => 
 								cal.url === calendar.url
 							);
@@ -1277,7 +1277,7 @@ export class Caldav implements INodeType {
 							}
 						}
 						
-						// Фильтруем события по дате
+						// Filter events by date
 						const eventsForDate: CalendarEvent[] = [];
 						
 						this.logger?.info(`[CalDAV GET] Processing ${calendarObjects.length} calendar objects`);
@@ -1336,7 +1336,7 @@ export class Caldav implements INodeType {
 
 						this.logger?.info(`[CalDAV GET] Found ${eventsForDate.length} events for date ${date}`);
 
-						// Обрабатываем найденные события
+						// Process found events
 						for (const event of eventsForDate) {
 							const eventData = event.calendarData;
 							
@@ -1384,12 +1384,12 @@ export class Caldav implements INodeType {
 							});
 						}
 
-						// Если событий не найдено, возвращаем информацию о поиске
+						// If no events found, return search information
 						if (eventsForDate.length === 0) {
-							// Добавляем примеры событий для отладки
+							// Add sample events for debugging
 							const sampleEvents: SampleEvent[] = [];
 							
-							// Анализируем первые несколько объектов календаря
+							// Analyze first few calendar objects
 							for (let i = 0; i < Math.min(2, calendarObjects.length); i++) {
 								const obj = calendarObjects[i];
 								if (!obj.calendarData) {
@@ -1408,7 +1408,7 @@ export class Caldav implements INodeType {
 									calendarDataStart: calendarData.substring(0, 200) + '...'
 								});
 								
-								// Показываем первые 2 события из этого объекта
+								// Show first 2 events from this object
 								for (let j = 0; j < Math.min(2, veventBlocks.length); j++) {
 									const veventBlock = veventBlocks[j];
 									if (!veventBlock.includes('END:VEVENT')) continue;
@@ -1427,13 +1427,13 @@ export class Caldav implements INodeType {
 								}
 							}
 
-							// Выбрасываем ошибку когда события не найдены
+							// Throw error when no events found
 							throw new NodeOperationError(
 								this.getNode(),
 								`No events found for ${targetDate.toDateString()}. Calendar: ${calendarUrl}, Objects found: ${calendarObjects.length}`,
 								{
 									itemIndex: i,
-									description: 'События на указанную дату не найдены',
+									description: 'No events found for the specified date',
 								}
 							);
 						}
