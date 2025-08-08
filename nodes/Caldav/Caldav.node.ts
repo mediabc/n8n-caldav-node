@@ -89,7 +89,7 @@ export class Caldav implements INodeType {
 		group: ['transform'],
 		version: 2,
 		subtitle: '={{$parameter["operation"]}}',
-		description: 'Interact with CalDAV calendars',
+		description: '={{$parameter["operation"] === "getEvents" ? ("Get events from " + ($parameter["calendarUrl"] ? $parameter["calendarUrl"] : "selected calendar")) : $parameter["operation"] === "createEvent" ? ("Create event in " + ($parameter["calendarUrl"] ? $parameter["calendarUrl"] : "selected calendar")) : $parameter["operation"] === "deleteEvent" ? ("Delete event from " + ($parameter["calendarUrl"] ? $parameter["calendarUrl"] : "selected calendar")) : "Interact with CalDAV calendars"}}',
 		usableAsTool: true,
 		defaults: {
 			name: 'CalDAV',
