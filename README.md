@@ -11,7 +11,6 @@ A simple n8n community node for working with CalDAV calendars.
 - **Calendar type detection** - automatically identify calendar types (Events/Tasks/Calendar)
 - **Get calendar events** for a specific date
 - **Create new events** in calendar
-- **Update existing events** by UID
 - **Delete events** by UID
 - **Connect to any CalDAV server** (Google Calendar, Apple iCloud, NextCloud, etc.)
 - **Basic authentication** (username/password)
@@ -100,7 +99,6 @@ The CalDAV node supports usage as an AI Tool for AI Agent:
 - "What's scheduled for this week?"  
 - "Are there any meetings on Monday?"
 - "Create a team meeting tomorrow at 3 PM"
-- "Move the meeting with ID abc123 to Tuesday"
 - "Delete the event with UID xyz789"
 
 ## 📖 Operations
@@ -127,21 +125,6 @@ Creates a new event in the calendar.
 
 **Returns:** Created event object with `uid`, `title`, `startDateTime`, `endDateTime`, `description`, `location`, `url`, `etag`, `success`, `message`
 
-### Update Event  
-Updates an existing event by UID.
-
-**Parameters:**
-- `Calendar Name or ID` - select calendar from list
-- `Event UID` - unique event identifier (required)
-- `Event Title` - new title (optional)
-- `Start Date and Time` - new start date (optional)  
-- `End Date and Time` - new end date (optional)
-- `Description` - new description (optional)
-- `Location` - new location (optional)
-
-**Returns:** Updated event object
-
-**Note:** Only specify fields to be changed, others will remain unchanged.
 
 ### Delete Event
 Deletes an existing event by UID.
