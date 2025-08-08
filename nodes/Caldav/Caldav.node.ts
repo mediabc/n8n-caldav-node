@@ -647,6 +647,19 @@ export class Caldav implements INodeType {
 			}
 		};
 
+		// Функция для форматирования даты в iCal формат (YYYYMMDDTHHMMSS)
+		const formatDateToICal = (date: Date, isUtc: boolean = false): string => {
+			const year = date.getFullYear();
+			const month = String(date.getMonth() + 1).padStart(2, '0');
+			const day = String(date.getDate()).padStart(2, '0');
+			const hours = String(date.getHours()).padStart(2, '0');
+			const minutes = String(date.getMinutes()).padStart(2, '0');
+			const seconds = String(date.getSeconds()).padStart(2, '0');
+			
+			const dateStr = `${year}${month}${day}T${hours}${minutes}${seconds}`;
+			return isUtc ? dateStr + 'Z' : dateStr;
+		};
+
 		// Функция для проверки исключенных дат (EXDATE)
 		const isDateExcluded = (targetDate: Date, eventData: string): boolean => {
 			const exdateMatches = eventData.match(/EXDATE[^:]*:([^\r\n]+)/g);
@@ -669,6 +682,32 @@ export class Caldav implements INodeType {
 				}
 			}
 			return false;
+		};
+
+		// Функция для расчета актуальных дат повторяющегося события для конкретной целевой даты
+		const calculateRecurringEventDates = (eventStartDate: Date, eventEndDate: Date | null, targetDate: Date, eventData: string): { actualStartDate: Date, actualEndDate: Date | null } => {
+			// Сохраняем время из оригинального события
+			const startTime = {
+				hours: eventStartDate.getHours(),
+				minutes: eventStartDate.getMinutes(),
+				seconds: eventStartDate.getSeconds(),
+				milliseconds: eventStartDate.getMilliseconds()
+			};
+
+			// Создаем актуальную дату начала на целевую дату с оригинальным временем
+			const actualStartDate = new Date(targetDate);
+			actualStartDate.setHours(startTime.hours, startTime.minutes, startTime.seconds, startTime.milliseconds);
+
+			let actualEndDate: Date | null = null;
+			if (eventEndDate) {
+				// Рассчитываем продолжительность оригинального события
+				const originalDuration = eventEndDate.getTime() - eventStartDate.getTime();
+				
+				// Создаем актуальную дату окончания
+				actualEndDate = new Date(actualStartDate.getTime() + originalDuration);
+			}
+
+			return { actualStartDate, actualEndDate };
 		};
 
 		// Улучшенная функция для проверки повторяющихся событий
@@ -1324,9 +1363,45 @@ export class Caldav implements INodeType {
 									// Проверяем правила повторения (RRULE)
 									const rruleMatch = eventData.match(/RRULE:([^\r\n]+)/);
 									if (rruleMatch && isRecurringEventOnDate(eventDate, targetDate, rruleMatch[1], eventData)) {
+										// Для повторяющихся событий рассчитываем актуальные даты
+										// Парсим также DTEND для расчета продолжительности
+										const dtEndMatch = eventData.match(/DTEND[^:]*:(.+)/);
+										const dtEndStr = dtEndMatch ? dtEndMatch[1].trim() : '';
+										const parsedEndDate = dtEndStr ? parseICalDate(dtEndStr, eventData) : null;
+										
+										// Рассчитываем актуальные даты для целевой даты
+										const { actualStartDate, actualEndDate } = calculateRecurringEventDates(
+											eventDate, 
+											parsedEndDate?.date || null, 
+											targetDate, 
+											eventData
+										);
+										
+										// Создаем модифицированные данные события с актуальными датами
+										let modifiedEventData = eventData;
+										
+										// Заменяем DTSTART на актуальную дату
+										const originalDtStart = eventData.match(/DTSTART[^:]*:([^\r\n]+)/);
+										if (originalDtStart) {
+											const isUtcStart = parsedDate.isUtc;
+											const actualStartStr = formatDateToICal(actualStartDate, isUtcStart);
+											const startLine = originalDtStart[0];
+											const newStartLine = startLine.replace(originalDtStart[1], actualStartStr);
+											modifiedEventData = modifiedEventData.replace(startLine, newStartLine);
+										}
+										
+										// Заменяем DTEND на актуальную дату (если существует)
+										if (actualEndDate && dtEndMatch) {
+											const isUtcEnd = parsedEndDate?.isUtc || false;
+											const actualEndStr = formatDateToICal(actualEndDate, isUtcEnd);
+											const endLine = dtEndMatch[0];
+											const newEndLine = endLine.replace(dtEndMatch[1], actualEndStr);
+											modifiedEventData = modifiedEventData.replace(endLine, newEndLine);
+										}
+										
 										eventsForDate.push({
 											...obj,
-											calendarData: eventData
+											calendarData: modifiedEventData
 										});
 									}
 									break;
