@@ -685,7 +685,7 @@ export class Caldav implements INodeType {
 		};
 
 		// Функция для расчета актуальных дат повторяющегося события для конкретной целевой даты
-		const calculateRecurringEventDates = (eventStartDate: Date, eventEndDate: Date | null, targetDate: Date, eventData: string): { actualStartDate: Date, actualEndDate: Date | null } => {
+		const calculateRecurringEventDates = (eventStartDate: Date, eventEndDate: Date | null, targetDate: Date): { actualStartDate: Date, actualEndDate: Date | null } => {
 			// Сохраняем время из оригинального события
 			const startTime = {
 				hours: eventStartDate.getHours(),
@@ -1373,8 +1373,7 @@ export class Caldav implements INodeType {
 										const { actualStartDate, actualEndDate } = calculateRecurringEventDates(
 											eventDate, 
 											parsedEndDate?.date || null, 
-											targetDate, 
-											eventData
+											targetDate
 										);
 										
 										// Создаем модифицированные данные события с актуальными датами
